@@ -2719,12 +2719,14 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
         return ctx.swap->Present(vsync ? 1 : 0, 0);
     }
     if (EnsureSky(ctx, proj, scene)) {
-        // Cubo 1500 centrado en la cámara (< far 2000): fondo HDRI primero.
+        // Cubo centrado en la cámara y dentro del far (esquinas a ~1732 < 2000):
+        // con 1500 las esquinas (2598) las recortaba el far y se veían
+        // triángulos del color de fondo al mirar en diagonal.
         float sworld[16], swv[16];
         SceneBuffer ssb{};
         Transform skyt{};
         skyt.position = cam_t->position;
-        skyt.scale = {1500.0f, 1500.0f, 1500.0f};
+        skyt.scale = {1000.0f, 1000.0f, 1000.0f};
         WorldMatrix(sworld, skyt);
         MatMul(swv, sworld, view);
         MatMul(ssb.wvp, swv, proj_m);
