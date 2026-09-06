@@ -3,51 +3,4835 @@
   "name": "Main",
   "entities": [
     {
-      "id": "Floor",
-      "name": "Floor",
-      "components": {
-        "Transform": {"position": [0, -1.1, 0], "rotation": [0, 0, 0], "scale": [6, 0.1, 4]},
-        "Mesh": {"primitive": "cube", "color": [0.25, 0.65, 0.35]}
-      }
-    },
-    {
       "id": "Player",
       "name": "Player",
       "components": {
-        "Transform": {"position": [-2, 0, 0], "rotation": [0, 0, 0], "scale": [0.65, 1.3, 0.65]},
-        "Mesh": {"primitive": "cube", "color": [0.25, 0.7, 1]}
+        "Transform": {
+          "position": [
+            -2,
+            0.15,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.65,
+            1.3,
+            0.65
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            0.25,
+            0.7,
+            1
+          ]
+        }
       }
     },
     {
       "id": "Cube",
       "name": "Cube",
       "components": {
-        "Transform": {"position": [2, 0, 0], "rotation": [0, 0, 0], "scale": [0.8, 0.8, 0.8]},
-        "Mesh": {"primitive": "cube", "color": [1, 0.55, 0.15]}
+        "Transform": {
+          "position": [
+            2,
+            -0.1,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.8,
+            0.8,
+            0.8
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
       }
     },
     {
       "id": "Camera",
       "name": "Main Camera",
       "components": {
-        "Transform": {"position": [1.02283, 4.65059, -2.96561], "rotation": [-1.422, 0.484331, 0], "scale": [1, 1, 1]},
-        "Camera": {"fov_degrees": 60}
+        "Transform": {
+          "position": [
+            1.02283,
+            4.65059,
+            -2.96561
+          ],
+          "rotation": [
+            -1.422,
+            0.484331,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Camera": {
+          "fov_degrees": 60
+        }
       }
     },
     {
       "id": "Light",
       "name": "Main Light",
       "components": {
-        "Transform": {"position": [0, 4, -2], "rotation": [0, 0, 0], "scale": [1, 1, 1]},
-        "Light": {"color": [1, 1, 1], "intensity": 1}
+        "Transform": {
+          "position": [
+            0,
+            4,
+            -2
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Light": {
+          "color": [
+            1,
+            1,
+            1
+          ],
+          "intensity": 1
+        }
       }
     },
     {
       "id": "Firefox",
       "name": "Firefox",
       "components": {
-        "Transform": {"position": [1.02182, 0.825339, -0.0368971], "rotation": [0, 0, 0], "scale": [0.19, 0.19, 0.19]},
-        "Mesh": {"primitive": "asset", "asset_id": "Firefox", "color": [1, 0.55, 0.15]}
+        "Transform": {
+          "position": [
+            1.02182,
+            0.825339,
+            -0.0368971
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            0.19,
+            0.19,
+            0.19
+          ]
+        },
+        "Mesh": {
+          "primitive": "asset",
+          "asset_id": "Firefox",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C000",
+      "name": "C000",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C001",
+      "name": "C001",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C002",
+      "name": "C002",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C003",
+      "name": "C003",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C004",
+      "name": "C004",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C005",
+      "name": "C005",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C006",
+      "name": "C006",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C007",
+      "name": "C007",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C008",
+      "name": "C008",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C009",
+      "name": "C009",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C010",
+      "name": "C010",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C011",
+      "name": "C011",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C012",
+      "name": "C012",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C013",
+      "name": "C013",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C014",
+      "name": "C014",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C015",
+      "name": "C015",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C016",
+      "name": "C016",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C017",
+      "name": "C017",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C018",
+      "name": "C018",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C019",
+      "name": "C019",
+      "components": {
+        "Transform": {
+          "position": [
+            3,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C020",
+      "name": "C020",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C021",
+      "name": "C021",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C022",
+      "name": "C022",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C023",
+      "name": "C023",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C024",
+      "name": "C024",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C025",
+      "name": "C025",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C026",
+      "name": "C026",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C027",
+      "name": "C027",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C028",
+      "name": "C028",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C029",
+      "name": "C029",
+      "components": {
+        "Transform": {
+          "position": [
+            6,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C030",
+      "name": "C030",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C031",
+      "name": "C031",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C032",
+      "name": "C032",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C033",
+      "name": "C033",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C034",
+      "name": "C034",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C035",
+      "name": "C035",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C036",
+      "name": "C036",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C037",
+      "name": "C037",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C038",
+      "name": "C038",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C039",
+      "name": "C039",
+      "components": {
+        "Transform": {
+          "position": [
+            9,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C040",
+      "name": "C040",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C041",
+      "name": "C041",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C042",
+      "name": "C042",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C043",
+      "name": "C043",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C044",
+      "name": "C044",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C045",
+      "name": "C045",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C046",
+      "name": "C046",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C047",
+      "name": "C047",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C048",
+      "name": "C048",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C049",
+      "name": "C049",
+      "components": {
+        "Transform": {
+          "position": [
+            12,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C050",
+      "name": "C050",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C051",
+      "name": "C051",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C052",
+      "name": "C052",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C053",
+      "name": "C053",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C054",
+      "name": "C054",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C055",
+      "name": "C055",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C056",
+      "name": "C056",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C057",
+      "name": "C057",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C058",
+      "name": "C058",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C059",
+      "name": "C059",
+      "components": {
+        "Transform": {
+          "position": [
+            15,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C060",
+      "name": "C060",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C061",
+      "name": "C061",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C062",
+      "name": "C062",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C063",
+      "name": "C063",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C064",
+      "name": "C064",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C065",
+      "name": "C065",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C066",
+      "name": "C066",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C067",
+      "name": "C067",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C068",
+      "name": "C068",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C069",
+      "name": "C069",
+      "components": {
+        "Transform": {
+          "position": [
+            18,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C070",
+      "name": "C070",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C071",
+      "name": "C071",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C072",
+      "name": "C072",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C073",
+      "name": "C073",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C074",
+      "name": "C074",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C075",
+      "name": "C075",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C076",
+      "name": "C076",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C077",
+      "name": "C077",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C078",
+      "name": "C078",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C079",
+      "name": "C079",
+      "components": {
+        "Transform": {
+          "position": [
+            21,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C080",
+      "name": "C080",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C081",
+      "name": "C081",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C082",
+      "name": "C082",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C083",
+      "name": "C083",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C084",
+      "name": "C084",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C085",
+      "name": "C085",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C086",
+      "name": "C086",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C087",
+      "name": "C087",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C088",
+      "name": "C088",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C089",
+      "name": "C089",
+      "components": {
+        "Transform": {
+          "position": [
+            24,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C090",
+      "name": "C090",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C091",
+      "name": "C091",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C092",
+      "name": "C092",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C093",
+      "name": "C093",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C094",
+      "name": "C094",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C095",
+      "name": "C095",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C096",
+      "name": "C096",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C097",
+      "name": "C097",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C098",
+      "name": "C098",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C099",
+      "name": "C099",
+      "components": {
+        "Transform": {
+          "position": [
+            27,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C100",
+      "name": "C100",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C101",
+      "name": "C101",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C102",
+      "name": "C102",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C103",
+      "name": "C103",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C104",
+      "name": "C104",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C105",
+      "name": "C105",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C106",
+      "name": "C106",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C107",
+      "name": "C107",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C108",
+      "name": "C108",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C109",
+      "name": "C109",
+      "components": {
+        "Transform": {
+          "position": [
+            30,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C110",
+      "name": "C110",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C111",
+      "name": "C111",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C112",
+      "name": "C112",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C113",
+      "name": "C113",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C114",
+      "name": "C114",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C115",
+      "name": "C115",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C116",
+      "name": "C116",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C117",
+      "name": "C117",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C118",
+      "name": "C118",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C119",
+      "name": "C119",
+      "components": {
+        "Transform": {
+          "position": [
+            33,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C120",
+      "name": "C120",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C121",
+      "name": "C121",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C122",
+      "name": "C122",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C123",
+      "name": "C123",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C124",
+      "name": "C124",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C125",
+      "name": "C125",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C126",
+      "name": "C126",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C127",
+      "name": "C127",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C128",
+      "name": "C128",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C129",
+      "name": "C129",
+      "components": {
+        "Transform": {
+          "position": [
+            36,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C130",
+      "name": "C130",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C131",
+      "name": "C131",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C132",
+      "name": "C132",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C133",
+      "name": "C133",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C134",
+      "name": "C134",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C135",
+      "name": "C135",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C136",
+      "name": "C136",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C137",
+      "name": "C137",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C138",
+      "name": "C138",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C139",
+      "name": "C139",
+      "components": {
+        "Transform": {
+          "position": [
+            39,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C140",
+      "name": "C140",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C141",
+      "name": "C141",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            3
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C142",
+      "name": "C142",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            6
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C143",
+      "name": "C143",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            9
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C144",
+      "name": "C144",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            12
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C145",
+      "name": "C145",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            15
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C146",
+      "name": "C146",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            18
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C147",
+      "name": "C147",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            21
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C148",
+      "name": "C148",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            24
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "C149",
+      "name": "C149",
+      "components": {
+        "Transform": {
+          "position": [
+            42,
+            0,
+            27
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            1,
+            0.55,
+            0.15
+          ]
+        }
+      }
+    },
+    {
+      "id": "Floor",
+      "name": "Floor",
+      "components": {
+        "Transform": {
+          "position": [
+            0,
+            -0.75,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            150,
+            0.5,
+            150
+          ]
+        },
+        "Mesh": {
+          "primitive": "cube",
+          "color": [
+            0.25,
+            0.65,
+            0.35
+          ]
+        }
       }
     }
   ]
