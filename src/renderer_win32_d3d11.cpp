@@ -588,7 +588,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         const Entity* hit = PickAt(*ctx, hwnd, mx, my, t);
         if (hit != nullptr) {
             ctx->selected = hit->id;
-            ctx->dragging = false;
+            // Con mouse:on (mira, pointer-lock) no hay WM_MOUSEMOVE de arrastre:
+            // los deltas los genera PollPointerLock. Para poder mover el objeto
+            // enfocado, el arrastre empieza al pulsar (mantener para mover,
+            // soltar para terminar). Con mouse:off se mantiene el gesto clásico
+            // (empieza al mover con el botón pulsado en WM_MOUSEMOVE).
+            ctx->dragging = ctx->mouse_look;
             ::SetCapture(hwnd);  // recibir WM_LBUTTONUP aunque el cursor salga de la ventana
         } else {
             ctx->selected.clear();

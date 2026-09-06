@@ -76,7 +76,8 @@ Si el dispositivo GPU se pierde, el proceso termina con error `GPU` en vez de co
 Al redimensionar/maximizar, el swapchain se recrea y se redibuja en vivo en cada
 `WM_SIZE` (sin estirado ni parpadeo GDI).
 Crosshair `+` estilo Minecraft en el centro: blanco = nada, verde = objetivo,
-amarillo = selección. Click izq. selecciona y arrastra (mueve en plano de vista);
+amarillo = selección. Click izq. selecciona; con el botón mantenido, mover el ratón
+arrastra (mueve en plano de vista) tanto con `mouse:off` como con `mouse:on` bajo la mira;
 click der. abre la ventana flotante con los datos de la entidad (`sel:` en el título).
 Al arrastrar, la cámara sigue el movimiento con el mismo delta (no pierdes el objeto).
 Gizmo en la selección (X rojo, Y verde, Z azul, con contorno negro para contraste).
