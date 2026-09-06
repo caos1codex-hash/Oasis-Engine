@@ -18,6 +18,7 @@
 #include <dxgi.h>
 #endif
 
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -1873,6 +1874,53 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
     return ctx.swap->Present(vsync ? 1 : 0, 0);
 }
 
+// --- Canal stop IA -> ventana (solo Windows) ---
+// Evento nombrado manual-reset por proyecto. "Global\\" lo hace visible entre
+// sesiones (automatización vs escritorio del usuario); requiere privilegio de
+// creación global (admin). Sin él se usa "Local\\" (solo misma sesión).
+// La raíz se canoniza (absoluta+normalizada+minúsculas) para que ".\DemoGame" y
+// "C:\...\DemoGame" calculen el mismo nombre en ambos extremos.
+std::string StopCanonicalRootKey(const std::filesystem::path& root) {
+    std::error_code ec;
+    std::filesystem::path abs = std::filesystem::absolute(root, ec);
+    if (ec) abs = root;
+    abs = abs.lexically_normal();
+    std::string s = abs.generic_string();
+    for (auto& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    return s;
+}
+
+std::uint64_t StopFnv1a64(const std::string& s) {
+    std::uint64_t h = 1469598103934665603ULL;
+    for (unsigned char c : s) {
+        h ^= c;
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
+std::string StopEventNameInternal(const std::filesystem::path& root) {
+    char hex[17];
+    std::snprintf(hex, sizeof(hex), "%016llx",
+                  static_cast<unsigned long long>(StopFnv1a64(StopCanonicalRootKey(root))));
+    return std::string("Global\\OasisEngineStop_") + hex;
+}
+
+HANDLE StopEventCreate(const std::string& name) {
+    HANDLE h = ::CreateEventA(nullptr, TRUE, FALSE, name.c_str());
+    if (h == nullptr && name.rfind("Global\\", 0) == 0) {
+        std::string local = "Local\\" + name.substr(7);
+        h = ::CreateEventA(nullptr, TRUE, FALSE, local.c_str());
+    }
+    if (h != nullptr) ::ResetEvent(h);  // limpiar señal rancia de un stop anterior
+    return h;
+}
+
+bool StopEventPoll(HANDLE h) {
+    if (h == nullptr) return false;
+    return ::WaitForSingleObject(h, 0) == WAIT_OBJECT_0;
+}
+
 #endif  // _WIN32
 
 }  // namespace
@@ -1990,6 +2038,10 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
     double ema_ms = 16.6;  // media móvil del frame para diagnóstico
     unsigned frames = 0;
     ctx.running = true;
+    HANDLE stop_event = StopEventCreate(StopEventNameInternal(proj.root));
+    if (stop_event == nullptr) {
+        std::fprintf(stderr, "Aviso: canal 'oasis stop' no disponible (sin evento).\n");
+    }
     while (ctx.running) {
         ctx.scene = rt.scene;  // visible para picking en clicks (rayo del frame anterior)
         ctx.proj = &proj;      // idem para redibujar durante el resize modal
@@ -1999,6 +2051,7 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
             ::DispatchMessageA(&m);
         }
         if (!ctx.running) break;
+        if (StopEventPoll(stop_event)) break;  // 'oasis stop' desde otra terminal/IA (sin guardar)
         ::QueryPerformanceCounter(&cur);
         double dt = static_cast<double>(cur.QuadPart - last.QuadPart) /
                     static_cast<double>(freq.QuadPart);
@@ -2064,8 +2117,13 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
         }
         if (cfg.max_ticks > 0 && rt.tick_count >= cfg.max_ticks) break;
     }
-    // Restaurar cursor/clip aunque se salga con el lock activo (ESC, --ticks, error).
+    // Restaurar cursor/clip aunque se salga con el lock activo (ESC, --ticks, error, stop).
     UnlockMouse(ctx);
+    if (stop_event != nullptr) {
+        ::ResetEvent(stop_event);
+        ::CloseHandle(stop_event);
+        stop_event = nullptr;
+    }
     if (ctx.info_hwnd != nullptr) {
         ::DestroyWindow(ctx.info_hwnd);
         ctx.info_hwnd = nullptr;
@@ -2085,6 +2143,41 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
     (void)out_backend;
     err.set("GPU", "Direct3D 11 requiere Windows.");
     return 1;
+#endif
+}
+
+std::string StopEventNameForRoot(const std::filesystem::path& project_root) {
+#ifdef _WIN32
+    return StopEventNameInternal(project_root);
+#else
+    (void)project_root;
+    return {};
+#endif
+}
+
+bool RequestStopForRoot(const std::filesystem::path& project_root, bool& out_signaled, Error& err) {
+    err.clear();
+    out_signaled = false;
+#ifdef _WIN32
+    std::string name = StopEventNameInternal(project_root);
+    HANDLE h = ::OpenEventA(EVENT_MODIFY_STATE, FALSE, name.c_str());
+    if (h == nullptr && name.rfind("Global\\", 0) == 0) {
+        std::string local = "Local\\" + name.substr(7);
+        h = ::OpenEventA(EVENT_MODIFY_STATE, FALSE, local.c_str());
+    }
+    if (h == nullptr) return true;  // sin ventana escuchando: idempotente, stopped:false
+    BOOL ok = ::SetEvent(h);
+    ::CloseHandle(h);
+    if (ok == FALSE) {
+        err.set("INTERNAL", "No se pudo señalar parada a la ventana.");
+        return false;
+    }
+    out_signaled = true;
+    return true;
+#else
+    (void)project_root;
+    err.set("GPU", "Direct3D 11 requiere Windows.");
+    return false;
 #endif
 }
 

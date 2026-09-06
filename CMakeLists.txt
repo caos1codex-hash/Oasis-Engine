@@ -73,4 +73,7 @@ if(BUILD_TESTING)
     COMMAND ${CMAKE_COMMAND} -DOASIS=$<TARGET_FILE:oasis> -DDEMO=${CMAKE_CURRENT_SOURCE_DIR}/DemoGame -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_entity_create_badid.cmake)
   add_test(NAME oasis_cli_setmodel_missing_asset
     COMMAND ${CMAKE_COMMAND} -DOASIS=$<TARGET_FILE:oasis> -DDEMO=${CMAKE_CURRENT_SOURCE_DIR}/DemoGame -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_setmodel_missing.cmake)
+  # stop sin ventana: ruta ficticia para no cerrar nunca una ventana real; idempotente stopped:false.
+  add_test(NAME oasis_cli_stop_idle COMMAND oasis stop --project ${CMAKE_CURRENT_BINARY_DIR}/NoWindowHere)
+  set_tests_properties(oasis_cli_stop_idle PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"stopped\":false")
 endif()

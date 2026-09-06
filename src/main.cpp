@@ -37,8 +37,9 @@ void PrintUsageHuman() {
                  "  oasis asset import ID ARCHIVO.glb [--project RUTA]\n"
                  "  oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]\n"
                  "  oasis asset list [--project RUTA]\n"
-                 "  oasis state [--project RUTA]\n"
-                 "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1]\n",
+                  "  oasis state [--project RUTA]\n"
+                  "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1]\n"
+                  "  oasis stop [--project RUTA]\n",
                  oasis::kVersion);
 }
 
@@ -497,6 +498,22 @@ int main(int argc, char** argv) {
             oasis::JsonEscape(scene.name).c_str(),
             static_cast<unsigned long long>(rt.tick_count), rt.elapsed_seconds,
             oasis::JsonEscape(backend).c_str(), mode_name, cfg.vsync ? "true" : "false");
+        return 0;
+    }
+
+    if (cmd == "stop") {
+        int idx = 2;
+        std::string root;
+        Error err;
+        if (!ParseProjectFlag(idx, argc, argv, root, err)) return FailOp(err);
+        bool signaled = false;
+        if (!oasis::RequestStopForRoot(root, signaled, err)) return FailOp(err);
+        std::printf("{\"schema_version\":%d,\"ok\":true,\"result\":{\"operation\":\"stop\",\"stopped\":%s}}\n",
+                    oasis::kSchemaVersion, signaled ? "true" : "false");
+        if (!signaled)
+            std::fprintf(stderr, "Sin ventana escuchando para ese proyecto.\n");
+        else
+            std::fprintf(stderr, "Parada señalada a la ventana (sale sin guardar).\n");
         return 0;
     }
 

@@ -87,6 +87,10 @@ Esquina superior derecha: widget de orientación con los 3 ejes mundo (mitad
 positiva brillante, negativa atenuada) que rota con la cámara.
 El título muestra `raton:N` y `rot:[yaw,pitch]` para comprobar que llegan eventos.
 Perder el foco desactiva el mouse: pulsa `Ctrl` de nuevo.
+Control total IA: `oasis stop --project RUTA` cierra la ventana de ese proyecto
+(sale sin guardar; idempotente: `stopped:false` si no hay ventana). En Windows usa
+un evento nombrado `Global\` (visible entre sesiones con admin) con fallback a
+`Local\`; `--ticks N` también auto-cierra tras N ticks para automatización.
 
 ## Buenas prácticas aplicadas
 

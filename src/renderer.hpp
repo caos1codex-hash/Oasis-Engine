@@ -27,4 +27,12 @@ struct RenderConfig {
 int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg, std::string& out_backend,
                 Error& err);
 
+// Canal de control IA -> ventana (solo Windows; en otras plataformas informa error).
+// Nombre estable del evento de parada para una raíz de proyecto (canoniza la ruta).
+std::string StopEventNameForRoot(const std::filesystem::path& project_root);
+// Señala parada a la ventana de ese proyecto. out_signaled=true si había instancia
+// escuchando; false si no hay ventana (idempotente, exit 0 en ambos casos).
+// Nunca toca stdout JSON del llamante más allá del resultado; no guarda escena.
+bool RequestStopForRoot(const std::filesystem::path& project_root, bool& out_signaled, Error& err);
+
 }  // namespace oasis
