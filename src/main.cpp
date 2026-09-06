@@ -33,6 +33,7 @@ void PrintUsageHuman() {
                   "Z [--project RUTA]\n"
                   "  oasis entity set-color ID R G B [--project RUTA]\n"
                   "  oasis entity set-light ID R G B INTENSIDAD [--project RUTA]\n"
+                  "  oasis entity set-camera ID FOV [--project RUTA]\n"
                  "  oasis entity set-model ID ASSET [--project RUTA]\n"
                  "  oasis entity get ID [--project RUTA]\n"
                  "  oasis entity delete ID [--project RUTA]\n"
@@ -364,6 +365,27 @@ int main(int argc, char** argv) {
             if (!oasis::EntitySetLight(scene, id, c, vals[3], err)) return FailOp(err);
             if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
             SuccessOp("entity.set_light");
+            return 0;
+        }
+                if (sub == "set-camera") {
+            if (argc < 5) return FailUsage("Uso: oasis entity set-camera ID FOV [--project RUTA]");
+            float fov = 0.0f;
+            if (!ParseFloatStrict(argv[4], fov)) {
+                Error e;
+                e.set("INVALID_ARG", "El FOV debe estar entre 1 y 179 grados.");
+                return FailOp(e);
+            }
+            int idx = 5;
+            std::string root;
+            Error err;
+            if (!ParseProjectFlag(idx, argc, argv, root, err)) return FailOp(err);
+            oasis::Project proj;
+            oasis::Scene scene;
+            if (!oasis::ProjectLoad(root, proj, err) || !oasis::SceneLoadActive(proj, scene, err))
+                return FailOp(err);
+            if (!oasis::EntitySetCamera(scene, id, fov, err)) return FailOp(err);
+            if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
+            SuccessOp("entity.set_camera");
             return 0;
         }
         if (sub == "set-model") {            if (argc < 5) return FailUsage("Uso: oasis entity set-model ID ASSET [--project RUTA]");

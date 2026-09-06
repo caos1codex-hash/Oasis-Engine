@@ -220,6 +220,17 @@ int main() {
                sun->light.intensity == 2.5f,
            "luz persiste");
     EXPECT(!oasis::EntitySetLight(lit, "Sun", warm, -1.0f, err), "intensidad <0 debe fallar");
+    // set-camera
+    EXPECT(oasis::EntityAddComponent(lit, "Sun", "Camera", err), err.message.c_str());
+    EXPECT(oasis::EntitySetCamera(lit, "Sun", 90.0f, err), err.message.c_str());
+    EXPECT(oasis::SceneSaveActive(proj, lit, err), err.message.c_str());
+    oasis::Scene cammed;
+    EXPECT(oasis::SceneLoadActive(proj, cammed, err), err.message.c_str());
+    const oasis::Entity* scam = oasis::SceneGetEntity(cammed, "Sun");
+    EXPECT(scam != nullptr && scam->has_camera && scam->camera.fov_degrees == 90.0f,
+           "fov persiste");
+    EXPECT(!oasis::EntitySetCamera(cammed, "Sun", 0.0f, err), "fov 0 debe fallar");
+    EXPECT(!oasis::EntitySetCamera(cammed, "Plain", 60.0f, err), "fov sin Camera debe fallar");
 
     // 6. Delete entidad persiste
     EXPECT(oasis::EntityDelete(again, "Cube", err), err.message.c_str());

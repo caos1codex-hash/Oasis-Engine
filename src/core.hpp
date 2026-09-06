@@ -111,6 +111,8 @@ bool EntitySetMeshColor(Scene& scene, const std::string& id, const Vec3& c, Erro
 // Color (RGB 0..1) e intensidad (finita no negativa) de la luz. Exige Light.
 bool EntitySetLight(Scene& scene, const std::string& id, const Vec3& c, float intensity,
                     Error& err);
+// FOV de la cámara en grados (1..179). Exige Camera.
+bool EntitySetCamera(Scene& scene, const std::string& id, float fov_degrees, Error& err);
 
 // JSON para CLI (siempre válido, con escape)
 std::string JsonEscape(const std::string& s);

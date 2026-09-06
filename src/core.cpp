@@ -842,6 +842,25 @@ bool EntitySetLight(Scene& scene, const std::string& id, const Vec3& c, float in
     return true;
 }
 
+bool EntitySetCamera(Scene& scene, const std::string& id, float fov_degrees, Error& err) {
+    err.clear();
+    Entity* e = SceneGetEntityMut(scene, id);
+    if (e == nullptr) {
+        err.set("NOT_FOUND", "La entidad '" + id + "' no existe.");
+        return false;
+    }
+    if (!e->has_camera) {
+        err.set("INVALID_ARG", "La entidad '" + id + "' no tiene Camera.");
+        return false;
+    }
+    if (std::isfinite(fov_degrees) == 0 || fov_degrees < 1.0f || fov_degrees > 179.0f) {
+        err.set("INVALID_ARG", "El FOV de la cámara debe estar entre 1 y 179 grados.");
+        return false;
+    }
+    e->camera.fov_degrees = fov_degrees;
+    return true;
+}
+
 std::string JsonEscape(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 2);
