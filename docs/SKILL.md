@@ -80,7 +80,8 @@ oasis stop [--project RUTA] [--save]
 * Cap 1024 entidades/escenas/assets (`LIMIT`).
 * Renderer: cubos + **primer primitivo GLB** (`POSITION`, índices 16/32,
   `NORMAL`/`TEXCOORD_0` opcionales con fallback, `baseColorFactor` +
-  `baseColorTexture` PNG/JPG). Sin metallic/roughness ni PBR completa.
+  `baseColorTexture` PNG/JPG con mipmaps). Proyección zn=0.1/zf=2000.
+  Sin metallic/roughness, PBR completa ni LOD geométrico.
 * `WorldMatrix` aplica yaw+pitch+roll a la malla (picking usa la misma matriz).
 * Ventana = Windows + D3D11 (dedicada → hardware → WARP). Headless es portable.
 * Sin ECS, física, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.

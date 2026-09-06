@@ -966,7 +966,9 @@ bool ViewMatrix(float out[16], const Transform& cam) {
 bool ProjectionMatrix(float out[16], float aspect, float fov_deg) {
     if (!(aspect > 0.0f) || std::isfinite(aspect) == 0) return false;
     if (!(fov_deg >= 1.0f && fov_deg <= 179.0f) || std::isfinite(fov_deg) == 0) return false;
-    const float zn = 0.1f, zf = 100.0f;
+    // zn=0.1/zf=2000: el suelo 150x150 y la rejilla no deben cortarse al alejarse.
+    // Con D24 la precisión a 200 uds es ~0.03 uds, suficiente para separaciones 0.5.
+    const float zn = 0.1f, zf = 2000.0f;
     float fov = fov_deg * 0.01745329252f;
     float s = 1.0f / std::tan(fov * 0.5f);
     if (std::isfinite(s) == 0 || !(s > 0.0f)) return false;
@@ -1364,18 +1366,20 @@ ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset
         D3D11_TEXTURE2D_DESC td{};
         td.Width = static_cast<UINT>(loaded.tex_w);
         td.Height = static_cast<UINT>(loaded.tex_h);
-        td.MipLevels = 1;
+        td.MipLevels = 0;  // cadena completa: se generan abajo
         td.ArraySize = 1;
         td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
         td.SampleDesc.Count = 1;
         td.Usage = D3D11_USAGE_DEFAULT;
-        td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET;
+        td.MiscFlags = D3D11_RESOURCE_MISC_GENERATE_MIPS;
         D3D11_SUBRESOURCE_DATA tsd{};
         tsd.pSysMem = loaded.tex_rgba.data();
         tsd.SysMemPitch = static_cast<UINT>(loaded.tex_w) * 4U;
         ID3D11Texture2D* tex = nullptr;
         HRESULT thr = ctx.device->CreateTexture2D(&td, &tsd, &tex);
         if (SUCCEEDED(thr)) thr = ctx.device->CreateShaderResourceView(tex, nullptr, &m.texture);
+        if (SUCCEEDED(thr)) ctx.context->GenerateMips(m.texture);
         if (tex != nullptr) tex->Release();
         if (FAILED(thr)) {
             if (m.texture != nullptr) {
@@ -1756,7 +1760,7 @@ bool Initialize(Context& ctx, HWND hwnd, Error& err) {
         smp.MaxAnisotropy = 1;
         smp.ComparisonFunc = D3D11_COMPARISON_NEVER;
         smp.MinLOD = 0.0f;
-        smp.MaxLOD = 0.0f;  // sin mipmaps: una sola capa
+        smp.MaxLOD = D3D11_FLOAT32_MAX;  // mipmaps generados: menos resolución a distancia
         hr = ctx.device->CreateSamplerState(&smp, &ctx.sampler);
     }
     if (SUCCEEDED(hr)) {

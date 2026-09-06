@@ -34,8 +34,9 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
 * Cap lógica 1024 entidades/escenas/assets (vector dinámico, no array en stack).
 * Renderer: primer primitivo GLB con `POSITION` + índices 16/32; `NORMAL` y
   `TEXCOORD_0` opcionales (sin `NORMAL` calcula normales suavizadas por área);
-  material `baseColorFactor` + `baseColorTexture` (PNG/JPG embebido, sin mipmaps).
-  Sin metallic/roughness, UV2, ni PBR completa.
+  material `baseColorFactor` + `baseColorTexture` (PNG/JPG embebido, con mipmaps
+  generados: menos resolución a distancia). Sin metallic/roughness, UV2, ni PBR
+  completa. LOD geométrico (menos triángulos a distancia): pendiente.
 * `WorldMatrix` aplica yaw+pitch+roll (`R = Ry*Rx*Rz`, misma matriz en picking).
 * VSync ON por defecto (`Present(1,0)`, ritmo del monitor). `--vsync 0` lo desactiva
   (`Present(0,0)` con tearing, solo para diagnóstico). Sin limitador FPS adicional.
