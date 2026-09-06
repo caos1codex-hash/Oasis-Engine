@@ -40,6 +40,7 @@ oasis scene delete NOMBRE [--project RUTA]   # no borra la activa: abre otra ant
 oasis entity create ID [--project RUTA]
 oasis entity add-component ID Transform|Mesh|Camera|Light [--project RUTA]
 oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y Z [--project RUTA]
+oasis entity set-color ID R G B [--project RUTA]  # RGB en 0..1, exige Mesh
 oasis entity set-model ID ASSET [--project RUTA]  # ASSET debe existir: si no, NOT_FOUND
 oasis entity get ID [--project RUTA]
 oasis entity delete ID [--project RUTA]

@@ -106,6 +106,8 @@ bool EntitySetTransform(Scene& scene, const std::string& id, const std::string& 
 // Nota: valida formato de asset_id pero no su existencia en el manifiesto.
 // La CLI (main.cpp set-model) verifica AssetListLoad y devuelve NOT_FOUND si falta.
 bool EntitySetMeshAsset(Scene& scene, const std::string& id, const std::string& asset_id, Error& err);
+// Color del Mesh (componentes RGB en 0..1). Exige entidad con Mesh.
+bool EntitySetMeshColor(Scene& scene, const std::string& id, const Vec3& c, Error& err);
 
 // JSON para CLI (siempre válido, con escape)
 std::string JsonEscape(const std::string& s);

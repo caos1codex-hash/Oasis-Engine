@@ -190,6 +190,19 @@ int main() {
     const oasis::Entity* c2 = oasis::SceneGetEntity(again, "Cube");
     EXPECT(c2 != nullptr && c2->mesh.primitive == "asset" && c2->mesh.asset_id == "Triangle",
            "mesh asset persiste");
+    // set-color persiste y valida rango
+    oasis::Vec3 red{1.0f, 0.0f, 0.0f};
+    EXPECT(oasis::EntitySetMeshColor(again, "Cube", red, err), err.message.c_str());
+    EXPECT(oasis::SceneSaveActive(proj, again, err), err.message.c_str());
+    oasis::Scene colored;
+    EXPECT(oasis::SceneLoadActive(proj, colored, err), err.message.c_str());
+    const oasis::Entity* c3 = oasis::SceneGetEntity(colored, "Cube");
+    EXPECT(c3 != nullptr && c3->mesh.color.x == 1.0f && c3->mesh.color.y == 0.0f &&
+               c3->mesh.color.z == 0.0f,
+           "mesh color persiste");
+    oasis::Vec3 bad{2.0f, 0.0f, 0.0f};
+    EXPECT(!oasis::EntitySetMeshColor(colored, "Cube", bad, err), "color >1 debe fallar");
+    EXPECT(!oasis::EntitySetMeshColor(colored, "Nope", red, err), "color sin entidad debe fallar");
 
     // 6. Delete entidad persiste
     EXPECT(oasis::EntityDelete(again, "Cube", err), err.message.c_str());

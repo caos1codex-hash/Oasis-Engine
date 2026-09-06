@@ -29,8 +29,9 @@ void PrintUsageHuman() {
                  "  oasis scene delete NOMBRE [--project RUTA]\n"
                  "  oasis entity create ID [--project RUTA]\n"
                  "  oasis entity add-component ID Transform|Mesh|Camera|Light [--project RUTA]\n"
-                 "  oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y "
-                 "Z [--project RUTA]\n"
+                  "  oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y "
+                  "Z [--project RUTA]\n"
+                  "  oasis entity set-color ID R G B [--project RUTA]\n"
                  "  oasis entity set-model ID ASSET [--project RUTA]\n"
                  "  oasis entity get ID [--project RUTA]\n"
                  "  oasis entity delete ID [--project RUTA]\n"
@@ -314,6 +315,30 @@ int main(int argc, char** argv) {
             if (!oasis::EntitySetTransform(scene, id, prop, v, err)) return FailOp(err);
             if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
             SuccessOp("entity.set");
+            return 0;
+        }
+        if (sub == "set-color") {
+            if (argc < 7) return FailUsage("Uso: oasis entity set-color ID R G B [--project RUTA]");
+            float rgb[3];
+            for (int i = 0; i < 3; ++i) {
+                if (!ParseFloatStrict(argv[4 + i], rgb[i])) {
+                    Error e;
+                    e.set("INVALID_ARG", "El color requiere componentes RGB en 0..1.");
+                    return FailOp(e);
+                }
+            }
+            int idx = 7;
+            std::string root;
+            Error err;
+            if (!ParseProjectFlag(idx, argc, argv, root, err)) return FailOp(err);
+            oasis::Project proj;
+            oasis::Scene scene;
+            if (!oasis::ProjectLoad(root, proj, err) || !oasis::SceneLoadActive(proj, scene, err))
+                return FailOp(err);
+            oasis::Vec3 c{rgb[0], rgb[1], rgb[2]};
+            if (!oasis::EntitySetMeshColor(scene, id, c, err)) return FailOp(err);
+            if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
+            SuccessOp("entity.set_color");
             return 0;
         }
         if (sub == "set-model") {

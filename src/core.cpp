@@ -792,6 +792,28 @@ bool EntitySetMeshAsset(Scene& scene, const std::string& id, const std::string& 
     return true;
 }
 
+bool EntitySetMeshColor(Scene& scene, const std::string& id, const Vec3& c, Error& err) {
+    err.clear();
+    Entity* e = SceneGetEntityMut(scene, id);
+    if (e == nullptr) {
+        err.set("NOT_FOUND", "La entidad '" + id + "' no existe.");
+        return false;
+    }
+    if (!e->has_mesh) {
+        err.set("INVALID_ARG", "La entidad '" + id + "' no tiene Mesh.");
+        return false;
+    }
+    const float ch[3] = {c.x, c.y, c.z};
+    for (int i = 0; i < 3; ++i) {
+        if (std::isfinite(ch[i]) == 0 || ch[i] < 0.0f || ch[i] > 1.0f) {
+            err.set("INVALID_ARG", "El color del Mesh requiere componentes RGB en 0..1.");
+            return false;
+        }
+    }
+    e->mesh.color = c;
+    return true;
+}
+
 std::string JsonEscape(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 2);
