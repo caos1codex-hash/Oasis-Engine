@@ -76,7 +76,7 @@ oasis stop [--project RUTA] [--save]
 * Cap 1024 entidades/escenas/assets (`LIMIT`).
 * Renderer: cubos + **primer primitivo GLB** con `POSITION` e índices 16/32.
   Sin materiales/UV/normales/texturas/PBR.
-* `WorldMatrix` solo **yaw** (pitch/roll no rotan la malla).
+* `WorldMatrix` aplica yaw+pitch+roll a la malla (picking usa la misma matriz).
 * Ventana = Windows + D3D11 (dedicada → hardware → WARP). Headless es portable.
 * Sin ECS, física, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.
 

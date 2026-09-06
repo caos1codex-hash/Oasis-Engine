@@ -34,7 +34,7 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
 * Cap lógica 1024 entidades/escenas/assets (vector dinámico, no array en stack).
 * Renderer solo primer primitivo GLB con `POSITION` + índices 16/32. Sin
   materiales/UV/normales/PBR. Documentado, no prometido.
-* `WorldMatrix` solo yaw (pitch/roll no rotan malla). Igual que v0.1, pendiente.
+* `WorldMatrix` aplica yaw+pitch+roll (`R = Ry*Rx*Rz`, misma matriz en picking).
 * VSync ON por defecto (`Present(1,0)`, ritmo del monitor). `--vsync 0` lo desactiva
   (`Present(0,0)` con tearing, solo para diagnóstico). Sin limitador FPS adicional.
 * Sin ECS, física, audio, scripting, red. Fuera de v0.2 por diseño.
