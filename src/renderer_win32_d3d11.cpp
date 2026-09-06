@@ -88,8 +88,15 @@ struct Context {
     std::string selected;          // id de entidad seleccionada ("" = ninguna)
     bool dragging = false;         // botón izq. mantenido sobre una selección
     HWND info_hwnd = nullptr;      // ventana flotante de datos (click der.)
-    HWND info_edit = nullptr;
-    HFONT info_font = nullptr;
+    std::vector<HWND> info_kids;   // controles de sección (se reconstruyen por entidad)
+    HFONT info_f_title = nullptr;  // Segoe UI negrita: nombre de entidad
+    HFONT info_f_head = nullptr;   // Segoe UI negrita: cabeceras de sección
+    HFONT info_f_body = nullptr;   // Segoe UI: valores
+    HFONT info_f_json = nullptr;   // Consolas: bloque JSON
+    HBRUSH info_brush_a = nullptr;  // muestra de color Mesh
+    HBRUSH info_brush_b = nullptr;  // muestra de color Light
+    HWND info_swatch_a = nullptr;
+    HWND info_swatch_b = nullptr;
     ID3D11Device* device = nullptr;
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain* swap = nullptr;
@@ -401,33 +408,123 @@ const Entity* PickEntity(Context& ctx, const Project& proj, const Scene& scene, 
     return hit;
 }
 
-std::string EntityInfoText(const Entity& e) {
-    std::ostringstream oss;
-    oss << "id: " << e.id << "\r\nname: " << e.name << "\r\n";
-    if (e.has_transform)
-        oss << "[Transform] position: [" << e.transform.position.x << ", " << e.transform.position.y
-            << ", " << e.transform.position.z << "] rotation: [" << e.transform.rotation.x << ", "
-            << e.transform.rotation.y << ", " << e.transform.rotation.z << "] scale: ["
-            << e.transform.scale.x << ", " << e.transform.scale.y << ", " << e.transform.scale.z
-            << "]\r\n";
-    if (e.has_mesh) {
-        oss << "[Mesh] primitive: " << e.mesh.primitive;
-        if (e.mesh.primitive == "asset") oss << " asset_id: " << e.mesh.asset_id;
-        oss << " color: [" << e.mesh.color.x << ", " << e.mesh.color.y << ", " << e.mesh.color.z
-            << "]\r\n";
+// --- Panel de datos (click der.): formato legible por secciones ---
+std::wstring WidenUtf8(const std::string& s) {
+    if (s.empty()) return {};
+    int n = ::MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    if (n <= 0) return {};
+    std::wstring w(static_cast<std::size_t>(n), L'\0');
+    if (::MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, w.data(), n) <= 0) return {};
+    if (!w.empty() && w.back() == L'\0') w.pop_back();
+    return w;
+}
+
+std::string FmtG(float v) {
+    char b[32];
+    std::snprintf(b, sizeof(b), "%.4g", static_cast<double>(v));
+    return std::string(b);
+}
+
+std::string FmtV3(const Vec3& v) {
+    return "[" + FmtG(v.x) + ", " + FmtG(v.y) + ", " + FmtG(v.z) + "]";
+}
+
+float Clamp01(float v) {
+    if (!(v > 0.0f) || std::isfinite(v) == 0) return 0.0f;
+    if (v > 1.0f) return 1.0f;
+    return v;
+}
+
+std::string HexCol(const Vec3& c) {
+    char b[8];
+    std::snprintf(b, sizeof(b), "#%02X%02X%02X",
+                  static_cast<int>(Clamp01(c.x) * 255.0f + 0.5f),
+                  static_cast<int>(Clamp01(c.y) * 255.0f + 0.5f),
+                  static_cast<int>(Clamp01(c.z) * 255.0f + 0.5f));
+    return std::string(b);
+}
+
+void ClearInfoChildren(Context& ctx) {
+    for (HWND h : ctx.info_kids) ::DestroyWindow(h);
+    ctx.info_kids.clear();
+    if (ctx.info_brush_a != nullptr) {
+        ::DeleteObject(ctx.info_brush_a);
+        ctx.info_brush_a = nullptr;
     }
-    if (e.has_camera) oss << "[Camera] fov_degrees: " << e.camera.fov_degrees << "\r\n";
-    if (e.has_light)
-        oss << "[Light] color: [" << e.light.color.x << ", " << e.light.color.y << ", "
-            << e.light.color.z << "] intensity: " << e.light.intensity << "\r\n";
-    oss << "\r\n--- JSON ---\r\n" << EntityToJson(e) << "\r\n";
-    return oss.str();
+    if (ctx.info_brush_b != nullptr) {
+        ::DeleteObject(ctx.info_brush_b);
+        ctx.info_brush_b = nullptr;
+    }
+    ctx.info_swatch_a = nullptr;
+    ctx.info_swatch_b = nullptr;
+}
+
+// Etiqueta de texto (Unicode para tildes). id: 1 título, 100+ cabeceras, resto cuerpo.
+HWND InfoLabel(Context& ctx, int id, HFONT font, const std::string& text, int x, int y, int w,
+               int h) {
+    HWND hwnd = ::CreateWindowExW(0, L"STATIC", WidenUtf8(text).c_str(),
+                                  WS_CHILD | WS_VISIBLE | SS_LEFT | SS_NOTIFY, x, y, w, h,
+                                  ctx.info_hwnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
+                                  ::GetModuleHandleA(nullptr), nullptr);
+    if (hwnd != nullptr) {
+        ::SendMessageW(hwnd, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+        ctx.info_kids.push_back(hwnd);
+    }
+    return hwnd;
+}
+
+// Muestra de color real (64x20 con borde). El pincel vive en el Context.
+HWND InfoSwatch(Context& ctx, int id, const Vec3& c, int x, int y) {
+    HBRUSH br = ::CreateSolidBrush(
+        RGB(static_cast<int>(Clamp01(c.x) * 255.0f + 0.5f),
+            static_cast<int>(Clamp01(c.y) * 255.0f + 0.5f),
+            static_cast<int>(Clamp01(c.z) * 255.0f + 0.5f)));
+    if (br == nullptr) return nullptr;
+    if (id == 101) {
+        if (ctx.info_brush_a != nullptr) ::DeleteObject(ctx.info_brush_a);
+        ctx.info_brush_a = br;
+    } else {
+        if (ctx.info_brush_b != nullptr) ::DeleteObject(ctx.info_brush_b);
+        ctx.info_brush_b = br;
+    }
+    HWND h = ::CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | SS_NOTIFY,
+                               x, y, 64, 20, ctx.info_hwnd,
+                               reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)),
+                               ::GetModuleHandleA(nullptr), nullptr);
+    if (h == nullptr) return nullptr;
+    if (id == 101)
+        ctx.info_swatch_a = h;
+    else
+        ctx.info_swatch_b = h;
+    ctx.info_kids.push_back(h);
+    return h;
 }
 
 LRESULT CALLBACK InfoProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     if (msg == WM_CLOSE) {
         ::ShowWindow(hwnd, SW_HIDE);  // la X oculta, no destruye
         return 0;
+    }
+    if (msg == WM_CTLCOLORSTATIC) {
+        HDC hdc = reinterpret_cast<HDC>(wp);
+        HWND ctrl = reinterpret_cast<HWND>(lp);
+        Context* ctx =
+            reinterpret_cast<Context*>(::GetWindowLongPtrA(hwnd, GWLP_USERDATA));
+        ::SetBkMode(hdc, TRANSPARENT);
+        int id = ::GetDlgCtrlID(ctrl);
+        if (ctx != nullptr && (ctrl == ctx->info_swatch_a || ctrl == ctx->info_swatch_b)) {
+            HBRUSH br = (ctrl == ctx->info_swatch_a) ? ctx->info_brush_a : ctx->info_brush_b;
+            return reinterpret_cast<LRESULT>(br != nullptr ? br : GetStockObject(WHITE_BRUSH));
+        }
+        if (id == 1)
+            ::SetTextColor(hdc, RGB(17, 24, 39));  // título casi negro
+        else if (id >= 100 && id < 200)
+            ::SetTextColor(hdc, RGB(194, 65, 12));  // cabeceras naranja Oasis
+        else if (id == 2)
+            ::SetTextColor(hdc, RGB(107, 114, 128));  // subtítulo gris
+        else
+            ::SetTextColor(hdc, RGB(31, 41, 55));  // cuerpo gris oscuro
+        return reinterpret_cast<LRESULT>(::GetStockObject(WHITE_BRUSH));
     }
     return ::DefWindowProcA(hwnd, msg, wp, lp);
 }
@@ -465,49 +562,119 @@ bool ConfirmExitAndSave(HWND hwnd, Context& ctx) {
 }
 
 void ShowEntityInfo(HWND main_hwnd, Context& ctx, const Entity& e) {
+    constexpr int kW = 560, kX = 16, kContentW = kW - 2 * kX;
     if (ctx.info_hwnd == nullptr) {
         WNDCLASSA wc{};
         wc.lpfnWndProc = InfoProc;
         wc.hInstance = ::GetModuleHandleA(nullptr);
         wc.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+        wc.hbrBackground = static_cast<HBRUSH>(::GetStockObject(WHITE_BRUSH));
         wc.lpszClassName = "OasisInfoV2";
         if (::RegisterClassA(&wc) == 0 && ::GetLastError() != ERROR_CLASS_ALREADY_EXISTS) return;
         ctx.info_hwnd = ::CreateWindowExA(0, wc.lpszClassName, "Oasis · datos",
                                           WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
-                                          CW_USEDEFAULT, CW_USEDEFAULT, 540, 380, main_hwnd, nullptr,
+                                          CW_USEDEFAULT, CW_USEDEFAULT, kW, 480, main_hwnd, nullptr,
                                           wc.hInstance, nullptr);
         if (ctx.info_hwnd == nullptr) return;
-        ctx.info_edit = ::CreateWindowExA(
-            WS_EX_CLIENTEDGE, "EDIT", "",
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
-            8, 8, 506, 326, ctx.info_hwnd, nullptr, wc.hInstance, nullptr);
-        if (ctx.info_edit == nullptr) {
-            ::DestroyWindow(ctx.info_hwnd);
-            ctx.info_hwnd = nullptr;
+        ::SetWindowLongPtrA(ctx.info_hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(&ctx));
+        auto make_font = [](int px, int weight, const char* face) {
+            return ::CreateFontA(-px, 0, 0, 0, weight, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                                 OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                                 VARIABLE_PITCH | FF_SWISS, face);
+        };
+        ctx.info_f_title = make_font(18, FW_BOLD, "Segoe UI");
+        ctx.info_f_head = make_font(14, FW_BOLD, "Segoe UI");
+        ctx.info_f_body = make_font(14, FW_NORMAL, "Segoe UI");
+        ctx.info_f_json = make_font(13, FW_NORMAL, "Consolas");
+        if (ctx.info_f_title == nullptr || ctx.info_f_head == nullptr ||
+            ctx.info_f_body == nullptr || ctx.info_f_json == nullptr)
             return;
-        }
-        ctx.info_font = ::CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-                                      OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                                      FIXED_PITCH | FF_MODERN, "Consolas");
-        if (ctx.info_font != nullptr)
-            ::SendMessageA(ctx.info_edit, WM_SETFONT, reinterpret_cast<WPARAM>(ctx.info_font),
-                           TRUE);
     }
+    ClearInfoChildren(ctx);
+    int y = 12;
+    InfoLabel(ctx, 1, ctx.info_f_title, e.name.empty() ? e.id : e.name, kX, y, kContentW, 30);
+    y += 30;
+    InfoLabel(ctx, 2, ctx.info_f_body, "id: " + e.id, kX, y, kContentW, 20);
+    y += 26;
+    int head_id = 100;
+    auto head = [&](const std::string& t) {
+        InfoLabel(ctx, head_id++, ctx.info_f_head, t, kX, y, kContentW, 24);
+        y += 24;
+    };
+    auto line = [&](const std::string& t) {
+        InfoLabel(ctx, 300, ctx.info_f_body, t, kX + 8, y, kContentW - 8, 20);
+        y += 20;
+    };
+    auto color_row = [&](int swatch_id, const Vec3& c) {
+        InfoSwatch(ctx, swatch_id, c, kX + 8, y);
+        InfoLabel(ctx, 300, ctx.info_f_body, FmtV3(c) + "  " + HexCol(c), kX + 80, y,
+                  kContentW - 88, 20);
+        y += 26;
+    };
+    if (e.has_transform) {
+        head("UBICACIÓN");
+        line("Posición:  " + FmtV3(e.transform.position));
+        line("Rotación:  " + FmtV3(e.transform.rotation));
+        y += 4;
+        head("TAMAÑO");
+        line("Escala:  " + FmtV3(e.transform.scale));
+        y += 4;
+    }
+    if (e.has_mesh) {
+        head("MALLA");
+        line("Primitiva:  " + e.mesh.primitive);
+        if (e.mesh.primitive == "asset") {
+            line("Asset:  " + e.mesh.asset_id);
+            std::string tex_state = "Pendiente de carga";
+            for (const auto& m : ctx.models) {
+                if (m.asset_id == e.mesh.asset_id) {
+                    tex_state =
+                        (m.texture != nullptr) ? "Sí (baseColorTexture)" : "No (solo color)";
+                    break;
+                }
+            }
+            line("Textura:  " + tex_state);
+        }
+        y += 4;
+        head("COLOR");
+        color_row(101, e.mesh.color);
+        y += 2;
+    }
+    if (e.has_light) {
+        head("LUZ");
+        color_row(102, e.light.color);
+        line("Intensidad:  " + FmtG(e.light.intensity));
+        y += 4;
+    }
+    if (e.has_camera) {
+        head("CÁMARA");
+        line("FOV:  " + FmtG(e.camera.fov_degrees) + "°");
+        y += 4;
+    }
+    head("DATOS JSON");
+    HWND edit = ::CreateWindowExW(
+        WS_EX_CLIENTEDGE, L"EDIT", WidenUtf8(EntityToJson(e)).c_str(),
+        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+        kX, y, kContentW, 110, ctx.info_hwnd, nullptr, ::GetModuleHandleA(nullptr), nullptr);
+    if (edit != nullptr) {
+        ::SendMessageW(edit, WM_SETFONT, reinterpret_cast<WPARAM>(ctx.info_f_json), TRUE);
+        ctx.info_kids.push_back(edit);
+        y += 110;
+    }
+    y += 12;
     std::string title = "Oasis · " + e.id;
-    ::SetWindowTextA(ctx.info_hwnd, title.c_str());
-    std::string body = EntityInfoText(e);
-    ::SetWindowTextA(ctx.info_edit, body.c_str());
+    ::SetWindowTextW(ctx.info_hwnd, WidenUtf8(title).c_str());
     // Flotante junto al cursor sin robar el foco (el mouse-look lo necesita).
     POINT pt{};
     ::GetCursorPos(&pt);
     RECT wa{};
     ::SystemParametersInfoA(SPI_GETWORKAREA, 0, &wa, 0);
-    int x = pt.x + 16, y = pt.y + 16;
-    if (x + 540 > wa.right) x = wa.right - 540;
-    if (y + 380 > wa.bottom) y = wa.bottom - 380;
+    int x = pt.x + 16, yy = pt.y + 16;
+    if (x + kW > wa.right) x = wa.right - kW;
+    if (yy + y > wa.bottom) yy = wa.bottom - y;
     if (x < wa.left) x = wa.left;
-    if (y < wa.top) y = wa.top;
-    ::SetWindowPos(ctx.info_hwnd, HWND_TOP, x, y, 540, 380, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    if (yy < wa.top) yy = wa.top;
+    ::SetWindowPos(ctx.info_hwnd, HWND_TOP, x, yy, kW, y, SWP_SHOWWINDOW | SWP_NOACTIVATE);
 }
 
 // Rayo bajo el punto de mira: centro si el lock está activo, cursor si está libre.
@@ -2533,14 +2700,26 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
         ::CloseHandle(stop_save_event);
         stop_save_event = nullptr;
     }
+    ClearInfoChildren(ctx);
     if (ctx.info_hwnd != nullptr) {
         ::DestroyWindow(ctx.info_hwnd);
         ctx.info_hwnd = nullptr;
-        ctx.info_edit = nullptr;
     }
-    if (ctx.info_font != nullptr) {
-        ::DeleteObject(ctx.info_font);
-        ctx.info_font = nullptr;
+    if (ctx.info_f_title != nullptr) {
+        ::DeleteObject(ctx.info_f_title);
+        ctx.info_f_title = nullptr;
+    }
+    if (ctx.info_f_head != nullptr) {
+        ::DeleteObject(ctx.info_f_head);
+        ctx.info_f_head = nullptr;
+    }
+    if (ctx.info_f_body != nullptr) {
+        ::DeleteObject(ctx.info_f_body);
+        ctx.info_f_body = nullptr;
+    }
+    if (ctx.info_f_json != nullptr) {
+        ::DeleteObject(ctx.info_f_json);
+        ctx.info_f_json = nullptr;
     }
     ReleaseContext(ctx);
     ::DestroyWindow(hwnd);
