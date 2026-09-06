@@ -24,7 +24,7 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
   a `Present` sin dibujar en vez de `NaN` al shader.
 * `asset_geometry` con caps 64MB/1M verts/4M idx, valida `componentType`,
   `count` entero, `stride>=12`, índices `< vertex_count`, `ByteWidth` sin wrap.
-  `model==nullptr` se salta con diagnóstico futuro, no invisible sin motivo.
+  `model==nullptr` se omite y avisa una vez por `stderr` (sin romper `stdout` JSON).
 * `Runtime::update` valida `0<=dt<=10` y `isfinite`. `shutdown` nullea escena.
 * Tests negativos: JSON inválido, campo ausente, tipo malo, `../`, `NaN`,
   carga fallida no muta, reimport idempotente, sin `.tmp` residual.
@@ -35,8 +35,8 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
 * Renderer solo primer primitivo GLB con `POSITION` + índices 16/32. Sin
   materiales/UV/normales/PBR. Documentado, no prometido.
 * `WorldMatrix` solo yaw (pitch/roll no rotan malla). Igual que v0.1, pendiente.
-* `Present(0,0)` sin VSync: tearing aceptado para diagnóstico. Sin limitador FPS
-  (el comentario viejo que decía "limita a 60" era falso; ahora no se afirma).
+* VSync ON por defecto (`Present(1,0)`, ritmo del monitor). `--vsync 0` lo desactiva
+  (`Present(0,0)` con tearing, solo para diagnóstico). Sin limitador FPS adicional.
 * Sin ECS, física, audio, scripting, red. Fuera de v0.2 por diseño.
 
 ## Migración DemoGame

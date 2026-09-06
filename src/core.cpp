@@ -242,11 +242,11 @@ void DefaultEntity(Entity& e, const std::string& id) {
 bool WriteProjectFile(const Project& proj, Error& err) {
     std::ostringstream oss;
     oss << "{\n  \"format\": 1,\n  \"engine\": \"Oasis Engine\",\n  \"version\": \"" << kVersion
-        << "\",\n  \"name\": \"" << proj.name << "\",\n";
+        << "\",\n  \"name\": \"" << JsonEscape(proj.name) << "\",\n";
     if (proj.active_scene.empty())
         oss << "  \"active_scene\": null\n}\n";
     else
-        oss << "  \"active_scene\": \"" << proj.active_scene << "\"\n}\n";
+        oss << "  \"active_scene\": \"" << JsonEscape(proj.active_scene) << "\"\n}\n";
     return AtomicWriteText(ProjectFilePath(proj), oss.str(), err);
 }
 
@@ -609,11 +609,11 @@ bool SceneSaveActive(const Project& proj, const Scene& scene, Error& err) {
         return false;
     }
     std::ostringstream oss;
-    oss << "{\n  \"format\": 1,\n  \"name\": \"" << scene.name << "\",\n  \"entities\": [\n";
+    oss << "{\n  \"format\": 1,\n  \"name\": \"" << JsonEscape(scene.name) << "\",\n  \"entities\": [\n";
     for (std::size_t i = 0; i < scene.entities.size(); ++i) {
         const Entity& e = scene.entities[i];
-        oss << "    {\n      \"id\": \"" << e.id << "\",\n      \"name\": \"" << e.name
-            << "\",\n      \"components\": {";
+        oss << "    {\n      \"id\": \"" << JsonEscape(e.id) << "\",\n      \"name\": \""
+            << JsonEscape(e.name) << "\",\n      \"components\": {";
         bool first = true;
         if (e.has_transform) {
             oss << "\n        \"Transform\": {\"position\": [" << FmtFloat(e.transform.position.x)
@@ -627,7 +627,8 @@ bool SceneSaveActive(const Project& proj, const Scene& scene, Error& err) {
         if (e.has_mesh) {
             if (!first) oss << ",";
             if (e.mesh.primitive == "asset")
-                oss << "\n        \"Mesh\": {\"primitive\": \"asset\", \"asset_id\": \"" << e.mesh.asset_id
+                oss << "\n        \"Mesh\": {\"primitive\": \"asset\", \"asset_id\": \""
+                    << JsonEscape(e.mesh.asset_id)
                     << "\", \"color\": [" << FmtFloat(e.mesh.color.x) << ", " << FmtFloat(e.mesh.color.y)
                     << ", " << FmtFloat(e.mesh.color.z) << "]}";
             else
@@ -902,6 +903,23 @@ std::string EntityResultToJson(const Entity& e) {
     oss << "{\"schema_version\":" << kSchemaVersion << ",\"ok\":true,\"result\":" << EntityToJson(e)
         << "}";
     return oss.str();
+}
+
+unsigned long long CurrentProcessId() { return ProcessId(); }
+
+std::filesystem::path TempPathFor(const std::filesystem::path& dst) {
+    unsigned long long n = g_tmp_counter.fetch_add(1, std::memory_order_relaxed);
+    return std::filesystem::path(dst.string() + ".tmp." + std::to_string(ProcessId()) + "." +
+                                 std::to_string(n));
+}
+
+bool AtomicReplaceFile(const std::filesystem::path& tmp, const std::filesystem::path& dst,
+                       Error& err) {
+    return AtomicReplace(tmp, dst, err);
+}
+
+bool AtomicWriteTextFile(const std::filesystem::path& dst, const std::string& text, Error& err) {
+    return AtomicWriteText(dst, text, err);
 }
 
 }  // namespace oasis

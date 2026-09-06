@@ -55,9 +55,22 @@ if(BUILD_TESTING)
   endif()
   add_test(NAME oasis_core COMMAND oasis_tests)
   add_test(NAME oasis_cli_version COMMAND oasis version)
+  set_tests_properties(oasis_cli_version PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"version\"")
   add_test(NAME oasis_cli_run COMMAND oasis run --project ${CMAKE_CURRENT_SOURCE_DIR}/DemoGame --ticks 2)
+  set_tests_properties(oasis_cli_run PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"ticks\":2")
   add_test(NAME oasis_cli_state COMMAND oasis state --project ${CMAKE_CURRENT_SOURCE_DIR}/DemoGame)
+  set_tests_properties(oasis_cli_state PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"Cube\"")
   add_test(NAME oasis_cli_scene_list COMMAND oasis scene list --project ${CMAKE_CURRENT_SOURCE_DIR}/DemoGame)
+  set_tests_properties(oasis_cli_scene_list PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"Main\"")
   add_test(NAME oasis_cli_entity_get COMMAND oasis entity get Cube --project ${CMAKE_CURRENT_SOURCE_DIR}/DemoGame)
+  set_tests_properties(oasis_cli_entity_get PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"Cube\"")
   add_test(NAME oasis_cli_asset_list COMMAND oasis asset list --project ${CMAKE_CURRENT_SOURCE_DIR}/DemoGame)
+  set_tests_properties(oasis_cli_asset_list PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"Firefox\"")
+  # Negativos: verifican exit-code + JSON de error sin mutar DemoGame (vía script CMake).
+  add_test(NAME oasis_cli_entity_get_missing
+    COMMAND ${CMAKE_COMMAND} -DOASIS=$<TARGET_FILE:oasis> -DDEMO=${CMAKE_CURRENT_SOURCE_DIR}/DemoGame -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_entity_get_missing.cmake)
+  add_test(NAME oasis_cli_entity_create_badid
+    COMMAND ${CMAKE_COMMAND} -DOASIS=$<TARGET_FILE:oasis> -DDEMO=${CMAKE_CURRENT_SOURCE_DIR}/DemoGame -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_entity_create_badid.cmake)
+  add_test(NAME oasis_cli_setmodel_missing_asset
+    COMMAND ${CMAKE_COMMAND} -DOASIS=$<TARGET_FILE:oasis> -DDEMO=${CMAKE_CURRENT_SOURCE_DIR}/DemoGame -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_setmodel_missing.cmake)
 endif()

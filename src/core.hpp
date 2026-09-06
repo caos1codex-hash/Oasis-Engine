@@ -103,6 +103,8 @@ const Entity* SceneGetEntity(const Scene& scene, const std::string& id);
 Entity* SceneGetEntityMut(Scene& scene, const std::string& id);
 bool EntitySetTransform(Scene& scene, const std::string& id, const std::string& property, const Vec3& v,
                         Error& err);
+// Nota: valida formato de asset_id pero no su existencia en el manifiesto.
+// La CLI (main.cpp set-model) verifica AssetListLoad y devuelve NOT_FOUND si falta.
 bool EntitySetMeshAsset(Scene& scene, const std::string& id, const std::string& asset_id, Error& err);
 
 // JSON para CLI (siempre válido, con escape)
@@ -112,5 +114,12 @@ std::string SceneListToJson(const Project& proj, const std::vector<std::string>&
 std::string StateToJson(const Project& proj, const Scene& scene);
 std::string ProjectToJson(const Project& proj);
 std::string EntityResultToJson(const Entity& e);
+
+// Escritura atómica compartida (core.cpp) — reutilizada por assets.cpp.
+// Evita duplicar ProcessId/contador/rename entre módulos.
+unsigned long long CurrentProcessId();
+std::filesystem::path TempPathFor(const std::filesystem::path& dst);
+bool AtomicReplaceFile(const std::filesystem::path& tmp, const std::filesystem::path& dst, Error& err);
+bool AtomicWriteTextFile(const std::filesystem::path& dst, const std::string& text, Error& err);
 
 }  // namespace oasis

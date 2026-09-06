@@ -1,4 +1,13 @@
-# Oasis Engine — Documentación Viva
+# OBSOLETO — Oasis Engine v0.1 — NO UTILIZAR COMO ESPECIFICACIÓN ACTUAL
+
+> **OBSOLETO — Oasis Engine v0.1. Fuente histórica únicamente.**
+> **La especificación actual es `README.md` + `docs/REBUILD_0_2.md`.**
+> **Implementación actual: C++17 (`src/main.cpp`, `src/core.cpp`, `src/assets.cpp`,
+> `src/runtime.cpp`, `src/renderer_win32_d3d11.cpp`) + cJSON vendored.**
+> **Este archivo conserva la visión v0.1 (C11) y auditorías 2026-09-05 como historia.
+> No describe el código actual.**
+
+# Oasis Engine — Documentación Viva (HISTÓRICA v0.1)
 
 > **Fuente de verdad desde 2026-09-05:** la auditoría técnica al final de este archivo prevalece sobre las secciones conceptuales históricas y sobre cualquier etiqueta anterior de “IMPLEMENTADO”. Conserva la visión útil, pero describe el estado real comprobado en código y ejecución.
 

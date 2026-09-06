@@ -28,39 +28,11 @@
 namespace oasis {
 namespace {
 
-unsigned long long ProcId() {
-#ifdef _WIN32
-    return static_cast<unsigned long long>(::GetCurrentProcessId());
-#else
-    return static_cast<unsigned long long>(::getpid());
-#endif
-}
-std::atomic<unsigned long long> g_asset_tmp{0};
-
 std::filesystem::path RegistryPath(const Project& proj) { return proj.root / "assets" / "oasis.assets.json"; }
 
-bool AtomicReplaceAsset(const std::filesystem::path& tmp, const std::filesystem::path& dst,
-                        Error& err) {
-#ifdef _WIN32
-    if (::MoveFileExA(tmp.string().c_str(), dst.string().c_str(),
-                       MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0)
-        return true;
-    err.set("IO", "No se pudo reemplazar '" + dst.string() + "' de forma atómica.");
-    return false;
-#else
-    std::error_code ec;
-    std::filesystem::rename(tmp, dst, ec);
-    if (!ec) return true;
-    err.set("IO", "No se pudo reemplazar '" + dst.string() + "' de forma atómica.");
-    return false;
-#endif
-}
-
-std::filesystem::path TempFor(const std::filesystem::path& dst) {
-    unsigned long long n = g_asset_tmp.fetch_add(1, std::memory_order_relaxed);
-    return std::filesystem::path(dst.string() + ".tmp." + std::to_string(ProcId()) + "." +
-                                 std::to_string(n));
-}
+// Escritura atómica compartida: ver core.hpp (CurrentProcessId/TempPathFor/
+// AtomicReplaceFile). Se eliminaron los duplicados ProcId/g_asset_tmp/
+// AtomicReplaceAsset/TempFor para usar el contador único de core.cpp.
 
 bool HasTraversal(const std::string& rel) {
     if (rel.empty()) return true;
@@ -86,16 +58,16 @@ bool WriteRegistry(const Project& proj, const AssetList& assets, Error& err) {
     oss << "{\n  \"format\": 1,\n  \"assets\": [\n";
     for (std::size_t i = 0; i < assets.items.size(); ++i) {
         const Asset& a = assets.items[i];
-        oss << "    {\"id\": \"" << a.id << "\", \"source\": \"" << a.source << "\", \"cooked\": \""
-            << a.cooked << "\", \"hash\": \"" << a.hash << "\", \"bytes\": " << a.bytes << "}"
-            << (i + 1 == assets.items.size() ? "" : ",") << "\n";
+        oss << "    {\"id\": \"" << JsonEscape(a.id) << "\", \"source\": \"" << JsonEscape(a.source)
+            << "\", \"cooked\": \"" << JsonEscape(a.cooked) << "\", \"hash\": \"" << JsonEscape(a.hash)
+            << "\", \"bytes\": " << a.bytes << "}" << (i + 1 == assets.items.size() ? "" : ",") << "\n";
     }
     oss << "  ]\n}\n";
     std::string text = oss.str();
     std::filesystem::path dst = RegistryPath(proj);
     std::error_code ec;
     std::filesystem::create_directories(dst.parent_path(), ec);
-    std::filesystem::path tmp = TempFor(dst);
+    std::filesystem::path tmp = TempPathFor(dst);
     {
         std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
         if (!out) {
@@ -112,7 +84,7 @@ bool WriteRegistry(const Project& proj, const AssetList& assets, Error& err) {
         }
         out.close();
     }
-    if (!AtomicReplaceAsset(tmp, dst, err)) {
+    if (!AtomicReplaceFile(tmp, dst, err)) {
         std::filesystem::remove(tmp, ec);
         return false;
     }
@@ -159,7 +131,7 @@ bool CopyAndValidateGlb(const std::filesystem::path& src, const std::filesystem:
     }
     std::error_code ec2;
     std::filesystem::create_directories(dst.parent_path(), ec2);
-    std::filesystem::path tmp = TempFor(dst);
+    std::filesystem::path tmp = TempPathFor(dst);
     std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
     if (!out) {
         err.set("IO", "No se pudo preparar el asset importado.");
@@ -202,7 +174,7 @@ bool CopyAndValidateGlb(const std::filesystem::path& src, const std::filesystem:
         err.set("IO", "No se pudo copiar el asset importado.");
         return false;
     }
-    if (!AtomicReplaceAsset(tmp, dst, err)) {
+    if (!AtomicReplaceFile(tmp, dst, err)) {
         std::filesystem::remove(tmp, ec2);
         return false;
     }
@@ -217,12 +189,12 @@ bool WriteCooked(const Project& proj, const Asset& a, Error& err) {
     std::filesystem::path rel(a.cooked, std::filesystem::path::format::generic_format);
     std::filesystem::path dst = proj.root / rel;
     std::ostringstream oss;
-    oss << "{\"format\":1,\"type\":\"model\",\"source\":\"" << a.source << "\",\"hash\":\"" << a.hash
-        << "\",\"bytes\":" << a.bytes << "}\n";
+    oss << "{\"format\":1,\"type\":\"model\",\"source\":\"" << JsonEscape(a.source) << "\",\"hash\":\""
+        << JsonEscape(a.hash) << "\",\"bytes\":" << a.bytes << "}\n";
     std::string text = oss.str();
     std::error_code ec;
     std::filesystem::create_directories(dst.parent_path(), ec);
-    std::filesystem::path tmp = TempFor(dst);
+    std::filesystem::path tmp = TempPathFor(dst);
     {
         std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
         if (!out) {
@@ -239,7 +211,7 @@ bool WriteCooked(const Project& proj, const Asset& a, Error& err) {
         }
         out.close();
     }
-    if (!AtomicReplaceAsset(tmp, dst, err)) {
+    if (!AtomicReplaceFile(tmp, dst, err)) {
         std::filesystem::remove(tmp, ec);
         return false;
     }
@@ -403,7 +375,7 @@ bool ObjWriteGlb(const std::filesystem::path& dst, const ObjMesh& mesh, Error& e
     }
     std::error_code ec;
     std::filesystem::create_directories(dst.parent_path(), ec);
-    std::filesystem::path tmp = TempFor(dst);
+    std::filesystem::path tmp = TempPathFor(dst);
     {
         std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
         if (!out) {
@@ -433,7 +405,7 @@ bool ObjWriteGlb(const std::filesystem::path& dst, const ObjMesh& mesh, Error& e
         }
         out.close();
     }
-    if (!AtomicReplaceAsset(tmp, dst, err)) {
+    if (!AtomicReplaceFile(tmp, dst, err)) {
         std::filesystem::remove(tmp, ec);
         return false;
     }

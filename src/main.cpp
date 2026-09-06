@@ -326,6 +326,24 @@ int main(int argc, char** argv) {
             oasis::Scene scene;
             if (!oasis::ProjectLoad(root, proj, err) || !oasis::SceneLoadActive(proj, scene, err))
                 return FailOp(err);
+            // Validar que el asset exista en el manifiesto antes de referenciarlo.
+            // Sin esto se guardaría un asset_id fantasma que el renderer saltaría en silencio.
+            {
+                oasis::AssetList assets;
+                if (!oasis::AssetListLoad(proj, assets, err)) return FailOp(err);
+                bool found = false;
+                for (const auto& a : assets.items) {
+                    if (a.id == asset) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    Error ne;
+                    ne.set("NOT_FOUND", "El asset '" + asset + "' no existe en el manifiesto.");
+                    return FailOp(ne);
+                }
+            }
             if (!oasis::EntitySetMeshAsset(scene, id, asset, err)) return FailOp(err);
             if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
             SuccessOp("entity.set_model");

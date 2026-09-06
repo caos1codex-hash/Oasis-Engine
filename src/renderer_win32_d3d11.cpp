@@ -100,6 +100,7 @@ struct Context {
     int buf_w = 0;  // tamaño real del backbuffer (resize en cada frame si cambia)
     int buf_h = 0;
     std::vector<ModelCache> models;
+    std::vector<std::string> model_warned;  // asset_id ya avisados por stderr (sin spam por frame)
 };
 
 void ReleaseContext(Context& c) {
@@ -880,19 +881,28 @@ bool LoadAssetGeometry(const Project& proj, const std::string& asset_id,
     return ok;
 }
 
-ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset_id, Error&) {
+ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset_id, Error& err) {
     for (auto& m : ctx.models)
         if (m.asset_id == asset_id) return &m;
-    if (ctx.models.size() >= 256) return nullptr;
+    if (ctx.models.size() >= 256) {
+        err.set("LIMIT", "Se superó la caché de modelos del renderer.");
+        return nullptr;
+    }
     std::vector<Vertex> verts;
     std::vector<std::uint32_t> indices;
     Error tmp;
-    if (!LoadAssetGeometry(proj, asset_id, verts, indices, tmp)) return nullptr;
+    if (!LoadAssetGeometry(proj, asset_id, verts, indices, tmp)) {
+        err.set(tmp.code.empty() ? "BAD_FORMAT" : tmp.code,
+                tmp.message.empty() ? "El GLB no contiene una malla compatible." : tmp.message);
+        return nullptr;
+    }
     std::uint64_t vb = static_cast<std::uint64_t>(verts.size()) * sizeof(Vertex);
     std::uint64_t ib = static_cast<std::uint64_t>(indices.size()) * sizeof(std::uint32_t);
     if (verts.empty() || indices.empty() || vb > 128ULL * 1024ULL * 1024ULL ||
-        ib > 128ULL * 1024ULL * 1024ULL)
+        ib > 128ULL * 1024ULL * 1024ULL) {
+        err.set("LIMIT", "La malla del asset supera el límite del renderer.");
         return nullptr;
+    }
     ModelCache m;
     m.asset_id = asset_id;
     // Bounds en espacio del modelo para picking proporcional a lo visible.
@@ -908,12 +918,16 @@ ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset
     desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
     D3D11_SUBRESOURCE_DATA data{};
     data.pSysMem = verts.data();
-    if (FAILED(ctx.device->CreateBuffer(&desc, &data, &m.vertices))) return nullptr;
+    if (FAILED(ctx.device->CreateBuffer(&desc, &data, &m.vertices))) {
+        err.set("GPU", "No se pudo crear el buffer de vértices del asset '" + asset_id + "'.");
+        return nullptr;
+    }
     desc.ByteWidth = static_cast<UINT>(ib);
     desc.BindFlags = D3D11_BIND_INDEX_BUFFER;
     data.pSysMem = indices.data();
     if (FAILED(ctx.device->CreateBuffer(&desc, &data, &m.indices))) {
         if (m.vertices != nullptr) m.vertices->Release();
+        err.set("GPU", "No se pudo crear el buffer de índices del asset '" + asset_id + "'.");
         return nullptr;
     }
     m.index_count = static_cast<UINT>(indices.size());
@@ -1785,7 +1799,24 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
         if (e.mesh.primitive == "asset") {
             Error tmp;
             model = GetModel(ctx, proj, e.mesh.asset_id, tmp);
-            if (model == nullptr) continue;
+            if (model == nullptr) {
+                // Diagnóstico por stderr (stdout sigue siendo JSON al final en main.cpp).
+                // Solo una vez por asset_id para no inundar a 60 FPS.
+                bool warned = false;
+                for (const auto& w : ctx.model_warned) {
+                    if (w == e.mesh.asset_id) {
+                        warned = true;
+                        break;
+                    }
+                }
+                if (!warned) {
+                    ctx.model_warned.push_back(e.mesh.asset_id);
+                    std::fprintf(stderr, "Aviso: no se pudo cargar la geometría del asset '%s' (%s), se omite su dibujo.\n",
+                                 e.mesh.asset_id.c_str(),
+                                 tmp.message.empty() ? "malla incompatible" : tmp.message.c_str());
+                }
+                continue;
+            }
             ctx.context->IASetVertexBuffers(0, 1, &model->vertices, &stride, &off);
             ctx.context->IASetIndexBuffer(model->indices, DXGI_FORMAT_R32_UINT, 0);
             count = model->index_count;
