@@ -1645,7 +1645,7 @@ const char* kSkyPsSrc =
     "  if (!(len > 1e-6)) return float4(0.02, 0.05, 0.09, 1);"
     "  d /= len;"
     "  float u = atan2(d.x, d.z) * 0.15915494 + 0.5;"
-    "  float v = asin(clamp(d.y, -1.0, 1.0)) * 0.31830988 + 0.5;"
+    "  float v = 0.5 - asin(clamp(d.y, -1.0, 1.0)) * 0.31830988;"  // v=0 fila sup. D3D = +Y stb
     "  float3 hdr = sky_tex.Sample(sky_smp, float2(u, v)).rgb;"
     "  float3 t = (hdr * (2.51 * hdr + 0.03)) / (hdr * (2.43 * hdr + 0.59) + 0.14);"
     "  t = pow(saturate(t), 1.0 / 2.2);"
