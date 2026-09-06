@@ -39,6 +39,12 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
   (`Present(0,0)` con tearing, solo para diagnóstico). Sin limitador FPS adicional.
 * Sin ECS, física, audio, scripting, red. Fuera de v0.2 por diseño.
 
+## Control IA (stop) — verificado 2026-09-06
+
+* `oasis stop --project RUTA` cierra la ventana de ese proyecto (sin guardar).
+* Verificado extremo a extremo: ventana en escritorio del usuario cerrada por
+  señal remota (`stopped:true`), además de ciclo abrir/cerrar en misma sesión.
+
 ## Migración DemoGame
 
 * `oasis.project` `version` pasa de `0.1.0` a `0.2.0`. Loader acepta cualquier
