@@ -32,6 +32,7 @@ void PrintUsageHuman() {
                   "  oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y "
                   "Z [--project RUTA]\n"
                   "  oasis entity set-color ID R G B [--project RUTA]\n"
+                  "  oasis entity set-light ID R G B INTENSIDAD [--project RUTA]\n"
                  "  oasis entity set-model ID ASSET [--project RUTA]\n"
                  "  oasis entity get ID [--project RUTA]\n"
                  "  oasis entity delete ID [--project RUTA]\n"
@@ -341,8 +342,31 @@ int main(int argc, char** argv) {
             SuccessOp("entity.set_color");
             return 0;
         }
-        if (sub == "set-model") {
-            if (argc < 5) return FailUsage("Uso: oasis entity set-model ID ASSET [--project RUTA]");
+        if (sub == "set-light") {
+            if (argc < 8) return FailUsage("Uso: oasis entity set-light ID R G B INTENSIDAD [--project RUTA]");
+            float vals[4];
+            for (int i = 0; i < 4; ++i) {
+                if (!ParseFloatStrict(argv[4 + i], vals[i])) {
+                    Error e;
+                    e.set("INVALID_ARG", "La luz requiere R G B en 0..1 e intensidad no negativa.");
+                    return FailOp(e);
+                }
+            }
+            int idx = 8;
+            std::string root;
+            Error err;
+            if (!ParseProjectFlag(idx, argc, argv, root, err)) return FailOp(err);
+            oasis::Project proj;
+            oasis::Scene scene;
+            if (!oasis::ProjectLoad(root, proj, err) || !oasis::SceneLoadActive(proj, scene, err))
+                return FailOp(err);
+            oasis::Vec3 c{vals[0], vals[1], vals[2]};
+            if (!oasis::EntitySetLight(scene, id, c, vals[3], err)) return FailOp(err);
+            if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
+            SuccessOp("entity.set_light");
+            return 0;
+        }
+        if (sub == "set-model") {            if (argc < 5) return FailUsage("Uso: oasis entity set-model ID ASSET [--project RUTA]");
             std::string asset = argv[4];
             int idx = 5;
             std::string root;

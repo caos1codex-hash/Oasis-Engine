@@ -108,6 +108,9 @@ bool EntitySetTransform(Scene& scene, const std::string& id, const std::string& 
 bool EntitySetMeshAsset(Scene& scene, const std::string& id, const std::string& asset_id, Error& err);
 // Color del Mesh (componentes RGB en 0..1). Exige entidad con Mesh.
 bool EntitySetMeshColor(Scene& scene, const std::string& id, const Vec3& c, Error& err);
+// Color (RGB 0..1) e intensidad (finita no negativa) de la luz. Exige Light.
+bool EntitySetLight(Scene& scene, const std::string& id, const Vec3& c, float intensity,
+                    Error& err);
 
 // JSON para CLI (siempre válido, con escape)
 std::string JsonEscape(const std::string& s);

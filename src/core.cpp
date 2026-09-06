@@ -814,6 +814,34 @@ bool EntitySetMeshColor(Scene& scene, const std::string& id, const Vec3& c, Erro
     return true;
 }
 
+bool EntitySetLight(Scene& scene, const std::string& id, const Vec3& c, float intensity,
+                    Error& err) {
+    err.clear();
+    Entity* e = SceneGetEntityMut(scene, id);
+    if (e == nullptr) {
+        err.set("NOT_FOUND", "La entidad '" + id + "' no existe.");
+        return false;
+    }
+    if (!e->has_light) {
+        err.set("INVALID_ARG", "La entidad '" + id + "' no tiene Light.");
+        return false;
+    }
+    const float ch[3] = {c.x, c.y, c.z};
+    for (int i = 0; i < 3; ++i) {
+        if (std::isfinite(ch[i]) == 0 || ch[i] < 0.0f || ch[i] > 1.0f) {
+            err.set("INVALID_ARG", "El color de la luz requiere componentes RGB en 0..1.");
+            return false;
+        }
+    }
+    if (std::isfinite(intensity) == 0 || intensity < 0.0f) {
+        err.set("INVALID_ARG", "La intensidad de la luz debe ser un número finito no negativo.");
+        return false;
+    }
+    e->light.color = c;
+    e->light.intensity = intensity;
+    return true;
+}
+
 std::string JsonEscape(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 2);

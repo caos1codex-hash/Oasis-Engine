@@ -203,6 +203,23 @@ int main() {
     oasis::Vec3 bad{2.0f, 0.0f, 0.0f};
     EXPECT(!oasis::EntitySetMeshColor(colored, "Cube", bad, err), "color >1 debe fallar");
     EXPECT(!oasis::EntitySetMeshColor(colored, "Nope", red, err), "color sin entidad debe fallar");
+    // set-light: el Cube temporal trae Light de la sección 2; el rechazo se
+    // prueba con una entidad que solo tiene Mesh.
+    EXPECT(oasis::SceneAddEntity(colored, "Plain", err), err.message.c_str());
+    EXPECT(oasis::EntityAddComponent(colored, "Plain", "Mesh", err), err.message.c_str());
+    EXPECT(!oasis::EntitySetLight(colored, "Plain", red, 1.0f, err), "luz sin Light debe fallar");
+    EXPECT(oasis::SceneAddEntity(colored, "Sun", err), err.message.c_str());
+    EXPECT(oasis::EntityAddComponent(colored, "Sun", "Light", err), err.message.c_str());
+    oasis::Vec3 warm{1.0f, 0.8f, 0.6f};
+    EXPECT(oasis::EntitySetLight(colored, "Sun", warm, 2.5f, err), err.message.c_str());
+    EXPECT(oasis::SceneSaveActive(proj, colored, err), err.message.c_str());
+    oasis::Scene lit;
+    EXPECT(oasis::SceneLoadActive(proj, lit, err), err.message.c_str());
+    const oasis::Entity* sun = oasis::SceneGetEntity(lit, "Sun");
+    EXPECT(sun != nullptr && sun->has_light && sun->light.color.y == 0.8f &&
+               sun->light.intensity == 2.5f,
+           "luz persiste");
+    EXPECT(!oasis::EntitySetLight(lit, "Sun", warm, -1.0f, err), "intensidad <0 debe fallar");
 
     // 6. Delete entidad persiste
     EXPECT(oasis::EntityDelete(again, "Cube", err), err.message.c_str());

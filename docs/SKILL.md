@@ -41,6 +41,7 @@ oasis entity create ID [--project RUTA]
 oasis entity add-component ID Transform|Mesh|Camera|Light [--project RUTA]
 oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y Z [--project RUTA]
 oasis entity set-color ID R G B [--project RUTA]  # RGB en 0..1, exige Mesh
+oasis entity set-light ID R G B INTENSIDAD [--project RUTA]  # RGB 0..1 + intensidad >= 0, exige Light
 oasis entity set-model ID ASSET [--project RUTA]  # ASSET debe existir: si no, NOT_FOUND
 oasis entity get ID [--project RUTA]
 oasis entity delete ID [--project RUTA]
