@@ -73,6 +73,10 @@ ver `mouse:on|off` en el título); con el mouse activo, moverlo mira (yaw/pitch
 de la primera `Camera`).
 Rendimiento: VSync activado por defecto (`Present(1,0)`, ritmo del monitor, sin
 busy-loop al 100%); `--vsync 0` lo desactiva. El título muestra FPS + ms medios.
+Calidad automática (`--min-fps 144` por defecto, `0` la desactiva): si los FPS
+bajan del mínimo, renderiza al 85/70/55/40% y reescala (ver `res:%` en el título);
+con >20 FPS de margen durante 3 s recupera. En pantallas de 60 Hz con VSync el
+techo físico impide llegar a 144: usa `--min-fps 60` o `0` en ese caso.
 Si el dispositivo GPU se pierde, el proceso termina con error `GPU` en vez de colgarse.
 Al redimensionar/maximizar, el swapchain se recrea y se redibuja en vivo en cada
 `WM_SIZE` (sin estirado ni parpadeo GDI).
