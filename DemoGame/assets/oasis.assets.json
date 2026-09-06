@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "assets": [
+    {"id": "Firefox", "source": "assets/source/Firefox.glb", "cooked": "assets/cooked/Firefox.oasisasset", "hash": "2a366ec49b49cde8", "bytes": 70152}
+  ]
+}

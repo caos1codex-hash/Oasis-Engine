@@ -1,0 +1,46 @@
+# Rebuild v0.2 — notas de ingeniería
+
+Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version:1`,
+`format:1`) pero con implementación nueva.
+
+## Qué cambió respecto a v0.1 (C11)
+
+* `src/*.c/*.h` eliminados. Nueva base: `core.hpp/cpp`, `assets.hpp/cpp`,
+  `runtime.hpp/cpp`, `renderer.hpp` + `renderer_win32_d3d11.cpp`, `main.cpp`.
+* Rutas con `std::filesystem`. Manifiestos siempre con `/`. Sin `\\` hardcodeado.
+* Escritura atómica con temporal único `*.tmp.<pid>.<ctr>` + `flush + rename`.
+  Sin `.tmp` determinista con race.
+* `snprintf` con chequeo de truncado en `JsonEscape` y backend GPU.
+* CLI estricto: `strtof` rechaza `nan/inf` y espacios; `--ticks` solo `0..1000000`
+  dígitos; `--project` no acepta flags como valor; `exit 0 ok / 2 uso / 1 runtime`.
+* `stdout` solo JSON. Humanos a `stderr`. `usage` también emite JSON.
+* Sin globales mutables en renderer. `Context` por instancia vía `GWLP_USERDATA`.
+  Input filtra auto-repeat (bit 30), exige foco para mover, `ESC` sale,
+  `Ctrl/Shift` rápido.
+* GPU con fallback: dedicada max-VRAM → hardware por defecto → WARP.
+  Sin fallback = error `GPU` explícito, no crash silencioso.
+* Matemáticas con guardas: `ViewMatrix`/`ProjectionMatrix` retornan `false` con
+  `eye==target`, `pitch ±90°`, `aspect<=0`, `fov` fuera de rango. Frame degradado
+  a `Present` sin dibujar en vez de `NaN` al shader.
+* `asset_geometry` con caps 64MB/1M verts/4M idx, valida `componentType`,
+  `count` entero, `stride>=12`, índices `< vertex_count`, `ByteWidth` sin wrap.
+  `model==nullptr` se salta con diagnóstico futuro, no invisible sin motivo.
+* `Runtime::update` valida `0<=dt<=10` y `isfinite`. `shutdown` nullea escena.
+* Tests negativos: JSON inválido, campo ausente, tipo malo, `../`, `NaN`,
+  carga fallida no muta, reimport idempotente, sin `.tmp` residual.
+
+## Límites honestos que siguen
+
+* Cap lógica 1024 entidades/escenas/assets (vector dinámico, no array en stack).
+* Renderer solo primer primitivo GLB con `POSITION` + índices 16/32. Sin
+  materiales/UV/normales/PBR. Documentado, no prometido.
+* `WorldMatrix` solo yaw (pitch/roll no rotan malla). Igual que v0.1, pendiente.
+* `Present(0,0)` sin VSync: tearing aceptado para diagnóstico. Sin limitador FPS
+  (el comentario viejo que decía "limita a 60" era falso; ahora no se afirma).
+* Sin ECS, física, audio, scripting, red. Fuera de v0.2 por diseño.
+
+## Migración DemoGame
+
+* `oasis.project` `version` pasa de `0.1.0` a `0.2.0`. Loader acepta cualquier
+  `version` string pero exige `format:1` + `engine:"Oasis Engine"`.
+* Escenas sin cambios de formato. `Firefox` sigue como `Mesh asset`.

@@ -1,0 +1,39 @@
+# Build
+build/
+out/
+cmake-build-*/
+
+# Temporales de pruebas / auditoría
+Temp*/
+oasis_test_project/
+*.tmp
+*.tlog
+*.lastbuildstate
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# MSVC / VS
+.vs/
+*.user
+*.suo
+*.sdf
+Debug/
+Release/
+x64/
+# Binarios y artefactos generados (no versionar)
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.idb
+
+# Proyectos generados por tests (se crean en %TEMP%)
+OasisEngineCTest_*/
+
+# Assets cocinados locales (se regeneran)
+# No ignoramos DemoGame/assets porque es demo versionada
