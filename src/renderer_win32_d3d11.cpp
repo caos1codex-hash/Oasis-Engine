@@ -1899,11 +1899,12 @@ std::uint64_t StopFnv1a64(const std::string& s) {
     return h;
 }
 
-std::string StopEventNameInternal(const std::filesystem::path& root) {
+std::string StopEventNameInternal(const std::filesystem::path& root, bool save) {
     char hex[17];
     std::snprintf(hex, sizeof(hex), "%016llx",
                   static_cast<unsigned long long>(StopFnv1a64(StopCanonicalRootKey(root))));
-    return std::string("Global\\OasisEngineStop_") + hex;
+    std::string base = std::string("Global\\OasisEngineStop") + (save ? "Save_" : "_") + hex;
+    return base;
 }
 
 HANDLE StopEventCreate(const std::string& name) {
@@ -2038,8 +2039,9 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
     double ema_ms = 16.6;  // media móvil del frame para diagnóstico
     unsigned frames = 0;
     ctx.running = true;
-    HANDLE stop_event = StopEventCreate(StopEventNameInternal(proj.root));
-    if (stop_event == nullptr) {
+    HANDLE stop_event = StopEventCreate(StopEventNameInternal(proj.root, false));
+    HANDLE stop_save_event = StopEventCreate(StopEventNameInternal(proj.root, true));
+    if (stop_event == nullptr || stop_save_event == nullptr) {
         std::fprintf(stderr, "Aviso: canal 'oasis stop' no disponible (sin evento).\n");
     }
     while (ctx.running) {
@@ -2051,7 +2053,21 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
             ::DispatchMessageA(&m);
         }
         if (!ctx.running) break;
-        if (StopEventPoll(stop_event)) break;  // 'oasis stop' desde otra terminal/IA (sin guardar)
+        // 'oasis stop' desde otra terminal/IA. Con --save persiste la escena
+        // viva antes de salir (equivale a ESC -> Sí); sin --save sale sin guardar.
+        bool save_and_stop = StopEventPoll(stop_save_event);
+        if (save_and_stop || StopEventPoll(stop_event)) {
+            if (save_and_stop && ctx.scene != nullptr && ctx.proj != nullptr) {
+                Error serr;
+                if (SceneSaveActive(*ctx.proj, *ctx.scene, serr))
+                    std::fprintf(stderr, "Parada con guardado: escena '%s' guardada.\n",
+                                 ctx.scene->name.c_str());
+                else
+                    std::fprintf(stderr, "Parada con guardado: no se pudo guardar: %s\n",
+                                 serr.message.c_str());
+            }
+            break;
+        }
         ::QueryPerformanceCounter(&cur);
         double dt = static_cast<double>(cur.QuadPart - last.QuadPart) /
                     static_cast<double>(freq.QuadPart);
@@ -2124,6 +2140,11 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
         ::CloseHandle(stop_event);
         stop_event = nullptr;
     }
+    if (stop_save_event != nullptr) {
+        ::ResetEvent(stop_save_event);
+        ::CloseHandle(stop_save_event);
+        stop_save_event = nullptr;
+    }
     if (ctx.info_hwnd != nullptr) {
         ::DestroyWindow(ctx.info_hwnd);
         ctx.info_hwnd = nullptr;
@@ -2148,18 +2169,19 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
 
 std::string StopEventNameForRoot(const std::filesystem::path& project_root) {
 #ifdef _WIN32
-    return StopEventNameInternal(project_root);
+    return StopEventNameInternal(project_root, false);
 #else
     (void)project_root;
     return {};
 #endif
 }
 
-bool RequestStopForRoot(const std::filesystem::path& project_root, bool& out_signaled, Error& err) {
+bool RequestStopForRoot(const std::filesystem::path& project_root, bool& out_signaled, Error& err,
+                        bool save) {
     err.clear();
     out_signaled = false;
 #ifdef _WIN32
-    std::string name = StopEventNameInternal(project_root);
+    std::string name = StopEventNameInternal(project_root, save);
     HANDLE h = ::OpenEventA(EVENT_MODIFY_STATE, FALSE, name.c_str());
     if (h == nullptr && name.rfind("Global\\", 0) == 0) {
         std::string local = "Local\\" + name.substr(7);

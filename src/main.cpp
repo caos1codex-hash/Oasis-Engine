@@ -39,7 +39,7 @@ void PrintUsageHuman() {
                  "  oasis asset list [--project RUTA]\n"
                   "  oasis state [--project RUTA]\n"
                   "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1]\n"
-                  "  oasis stop [--project RUTA]\n",
+                  "  oasis stop [--project RUTA] [--save]\n",
                  oasis::kVersion);
 }
 
@@ -502,16 +502,33 @@ int main(int argc, char** argv) {
     }
 
     if (cmd == "stop") {
-        int idx = 2;
-        std::string root;
+        std::string root = ".";
+        bool save = false;
+        for (int i = 2; i < argc; ++i) {
+            std::string a = argv[i];
+            if (a == "--save") {
+                save = true;
+            } else if (a == "--project") {
+                if (i + 1 >= argc) return FailUsage("Falta la ruta después de --project.");
+                std::string v = argv[i + 1];
+                if (v.empty() || v.rfind("--", 0) == 0) return FailUsage("Ruta de --project inválida.");
+                root = v;
+                ++i;
+            } else {
+                return FailUsage("Flag desconocido en stop: " + a);
+            }
+        }
         Error err;
-        if (!ParseProjectFlag(idx, argc, argv, root, err)) return FailOp(err);
         bool signaled = false;
-        if (!oasis::RequestStopForRoot(root, signaled, err)) return FailOp(err);
-        std::printf("{\"schema_version\":%d,\"ok\":true,\"result\":{\"operation\":\"stop\",\"stopped\":%s}}\n",
-                    oasis::kSchemaVersion, signaled ? "true" : "false");
+        if (!oasis::RequestStopForRoot(root, signaled, err, save)) return FailOp(err);
+        std::printf(
+            "{\"schema_version\":%d,\"ok\":true,\"result\":{\"operation\":\"stop\",\"stopped\":%s,"
+            "\"save\":%s}}\n",
+            oasis::kSchemaVersion, signaled ? "true" : "false", save ? "true" : "false");
         if (!signaled)
             std::fprintf(stderr, "Sin ventana escuchando para ese proyecto.\n");
+        else if (save)
+            std::fprintf(stderr, "Parada con guardado señalada a la ventana.\n");
         else
             std::fprintf(stderr, "Parada señalada a la ventana (sale sin guardar).\n");
         return 0;

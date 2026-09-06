@@ -76,4 +76,6 @@ if(BUILD_TESTING)
   # stop sin ventana: ruta ficticia para no cerrar nunca una ventana real; idempotente stopped:false.
   add_test(NAME oasis_cli_stop_idle COMMAND oasis stop --project ${CMAKE_CURRENT_BINARY_DIR}/NoWindowHere)
   set_tests_properties(oasis_cli_stop_idle PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"stopped\":false")
+  add_test(NAME oasis_cli_stop_save_idle COMMAND oasis stop --project ${CMAKE_CURRENT_BINARY_DIR}/NoWindowHere --save)
+  set_tests_properties(oasis_cli_stop_save_idle PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"stopped\":false.*\"save\":true")
 endif()
