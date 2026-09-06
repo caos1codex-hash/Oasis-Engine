@@ -19,6 +19,8 @@
 #endif
 
 #include <cctype>
+#include "stb_image.h"
+
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -39,7 +41,9 @@ __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 
 struct Vertex {
     float position[3];
+    float normal[3];
     float color[3];
+    float uv[2];
 };
 struct SceneBuffer {
     float wvp[16];
@@ -48,13 +52,17 @@ struct SceneBuffer {
     float light_dir[4]; // dirección normalizada de la luz (xyz), w padding
     float light_col[4]; // color de luz × intensidad (rgb), w padding
     float eye_pos[4];   // posición de la cámara (xyz), w padding
+    float tex_params[4];  // x = 1.0 usa baseColorTexture / 0.0 sin textura, yzw padding
+    float base_col[4];    // baseColorFactor del material (rgb), w padding
 };
 
 struct ModelCache {
     std::string asset_id;
     ID3D11Buffer* vertices = nullptr;
     ID3D11Buffer* indices = nullptr;
+    ID3D11ShaderResourceView* texture = nullptr;  // nullptr = sin baseColorTexture
     UINT index_count = 0;
+    float base_factor[4] = {1.0f, 1.0f, 1.0f, 1.0f};  // pbrMetallicRoughness.baseColorFactor
     float bmin[3] = {-0.5f, -0.5f, -0.5f};  // bounds en espacio del modelo
     float bmax[3] = {0.5f, 0.5f, 0.5f};
 };
@@ -98,6 +106,7 @@ struct Context {
     ID3D11Buffer* gizmo_vb = nullptr;      // gizmo ejes + línea roja (dinámico, 20 vértices)
     ID3D11Buffer* corner_vb = nullptr;     // widget orientación esq. sup. der. (dinámico, 26)
     ID3D11DepthStencilState* no_depth = nullptr;  // para dibujar el overlay 2D
+    ID3D11SamplerState* sampler = nullptr;  // lineal clamp para baseColorTexture
     int buf_w = 0;  // tamaño real del backbuffer (resize en cada frame si cambia)
     int buf_h = 0;
     std::vector<ModelCache> models;
@@ -106,10 +115,12 @@ struct Context {
 
 void ReleaseContext(Context& c) {
     for (auto& m : c.models) {
+        if (m.texture != nullptr) m.texture->Release();
         if (m.indices != nullptr) m.indices->Release();
         if (m.vertices != nullptr) m.vertices->Release();
     }
     c.models.clear();
+    if (c.sampler != nullptr) c.sampler->Release();
     if (c.matrices != nullptr) c.matrices->Release();
     if (c.cross_vb != nullptr) c.cross_vb->Release();
     if (c.gizmo_vb != nullptr) c.gizmo_vb->Release();
@@ -131,6 +142,7 @@ void ReleaseContext(Context& c) {
     c.gizmo_vb = nullptr;
     c.corner_vb = nullptr;
     c.no_depth = nullptr;
+    c.sampler = nullptr;
     c.cube_ib = nullptr;
     c.cube_vb = nullptr;
     c.layout = nullptr;
@@ -786,8 +798,20 @@ std::uint32_t U32Le(const unsigned char* b) {
            (static_cast<std::uint32_t>(b[2]) << 16U) | (static_cast<std::uint32_t>(b[3]) << 24U);
 }
 
-bool LoadAssetGeometry(const Project& proj, const std::string& asset_id,
-                       std::vector<Vertex>& verts, std::vector<std::uint32_t>& idx, Error& err) {
+// Modelo cargado del primer primitivo GLB: geometría + material PBR básico.
+// Sin NORMAL se calculan normales suavizadas; sin TEXCOORD_0/material la malla
+// usa color de vértice (cubos del editor) modulado por Mesh.color.
+struct LoadedModel {
+    std::vector<Vertex> verts;
+    std::vector<std::uint32_t> idx;
+    float base_factor[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    std::vector<unsigned char> tex_rgba;  // vacío = sin baseColorTexture
+    int tex_w = 0;
+    int tex_h = 0;
+};
+
+bool LoadAssetGeometry(const Project& proj, const std::string& asset_id, LoadedModel& model,
+                       Error& err) {
     if (!ValidId(asset_id)) {
         err.set("INVALID_ARG", "Identificador de asset inválido.");
         return false;
@@ -823,14 +847,23 @@ bool LoadAssetGeometry(const Project& proj, const std::string& asset_id,
     cJSON* views = cJSON_GetObjectItemCaseSensitive(root, "bufferViews");
     cJSON* pos_acc = nullptr;
     cJSON* idx_acc = nullptr;
+    cJSON* nrm_acc = nullptr;
+    cJSON* uv_acc = nullptr;
     if (prim != nullptr) {
         cJSON* attrs = cJSON_GetObjectItemCaseSensitive(prim, "attributes");
         cJSON* pos_ref = attrs != nullptr ? cJSON_GetObjectItemCaseSensitive(attrs, "POSITION") : nullptr;
         cJSON* idx_ref = cJSON_GetObjectItemCaseSensitive(prim, "indices");
+        cJSON* nrm_ref = attrs != nullptr ? cJSON_GetObjectItemCaseSensitive(attrs, "NORMAL") : nullptr;
+        cJSON* uv_ref =
+            attrs != nullptr ? cJSON_GetObjectItemCaseSensitive(attrs, "TEXCOORD_0") : nullptr;
         if (cJSON_IsNumber(pos_ref) != 0 && pos_ref->valueint >= 0)
             pos_acc = cJSON_GetArrayItem(accessors, pos_ref->valueint);
         if (cJSON_IsNumber(idx_ref) != 0 && idx_ref->valueint >= 0)
             idx_acc = cJSON_GetArrayItem(accessors, idx_ref->valueint);
+        if (cJSON_IsNumber(nrm_ref) != 0 && nrm_ref->valueint >= 0)
+            nrm_acc = cJSON_GetArrayItem(accessors, nrm_ref->valueint);
+        if (cJSON_IsNumber(uv_ref) != 0 && uv_ref->valueint >= 0)
+            uv_acc = cJSON_GetArrayItem(accessors, uv_ref->valueint);
     }
     if (cJSON_IsObject(pos_acc) != 0 && cJSON_IsObject(idx_acc) != 0) {
         cJSON* pos_type = cJSON_GetObjectItemCaseSensitive(pos_acc, "type");
@@ -878,29 +911,206 @@ bool LoadAssetGeometry(const Project& proj, const std::string& asset_id,
             if (pc <= 1000000U && ic <= 4000000U && pos_off <= bin_bytes && idx_off <= bin_bytes &&
                 pc <= (bin_bytes - pos_off) / stride &&
                 ic <= (bin_bytes - idx_off) / idx_sz) {
-                verts.resize(pc);
-                idx.resize(ic);
+                // NORMAL / TEXCOORD_0 opcionales: mismo count que POSITION o se ignoran.
+                auto resolve_vec = [&](cJSON* acc, const char* want_type, std::uint32_t elem_bytes,
+                                       std::uint32_t& out_off,
+                                       std::uint32_t& out_stride) -> bool {
+                    if (cJSON_IsObject(acc) == 0) return false;
+                    cJSON* ty = cJSON_GetObjectItemCaseSensitive(acc, "type");
+                    cJSON* ct = cJSON_GetObjectItemCaseSensitive(acc, "componentType");
+                    cJSON* co = cJSON_GetObjectItemCaseSensitive(acc, "count");
+                    cJSON* bv_ref = cJSON_GetObjectItemCaseSensitive(acc, "bufferView");
+                    cJSON* bv = (cJSON_IsNumber(bv_ref) != 0 && bv_ref->valueint >= 0)
+                                    ? cJSON_GetArrayItem(views, bv_ref->valueint)
+                                    : nullptr;
+                    if (cJSON_IsString(ty) == 0 || std::strcmp(ty->valuestring, want_type) != 0 ||
+                        cJSON_IsNumber(ct) == 0 || ct->valueint != 5126 ||
+                        cJSON_IsNumber(co) == 0 || co->valueint != static_cast<int>(pc) ||
+                        cJSON_IsObject(bv) == 0)
+                        return false;
+                    out_off = u32(bv, "byteOffset") + u32(acc, "byteOffset");
+                    out_stride = elem_bytes;
+                    cJSON* st = cJSON_GetObjectItemCaseSensitive(bv, "byteStride");
+                    if (cJSON_IsNumber(st) != 0) {
+                        if (st->valueint < static_cast<int>(elem_bytes)) return false;
+                        out_stride = static_cast<std::uint32_t>(st->valueint);
+                    }
+                    if (out_off > bin_bytes || pc > (bin_bytes - out_off) / out_stride) return false;
+                    return true;
+                };
+                std::uint32_t nrm_off = 0, nrm_stride = 12, uv_off = 0, uv_stride = 8;
+                bool have_normals =
+                    resolve_vec(nrm_acc, "VEC3", 12U, nrm_off, nrm_stride);
+                bool have_uv = resolve_vec(uv_acc, "VEC2", 8U, uv_off, uv_stride);
+                model.verts.resize(pc);
+                model.idx.resize(ic);
+                bool uv_bad = false;
                 for (std::uint32_t i = 0; i < pc; ++i) {
-                    std::memcpy(verts[i].position, bin + pos_off + i * stride, 12);
-                    verts[i].color[0] = verts[i].color[1] = verts[i].color[2] = 1.0f;
-                    if (std::isfinite(verts[i].position[0]) == 0 ||
-                        std::isfinite(verts[i].position[1]) == 0 ||
-                        std::isfinite(verts[i].position[2]) == 0) {
+                    std::memcpy(model.verts[i].position, bin + pos_off + i * stride, 12);
+                    model.verts[i].color[0] = model.verts[i].color[1] = model.verts[i].color[2] =
+                        1.0f;
+                    model.verts[i].uv[0] = model.verts[i].uv[1] = 0.0f;
+                    if (have_normals)
+                        std::memcpy(model.verts[i].normal, bin + nrm_off + i * nrm_stride, 12);
+                    else
+                        model.verts[i].normal[0] = model.verts[i].normal[1] =
+                            model.verts[i].normal[2] = 0.0f;
+                    if (have_uv) {
+                        float tmp_uv[2] = {0.0f, 0.0f};
+                        std::memcpy(tmp_uv, bin + uv_off + i * uv_stride, 8);
+                        if (std::isfinite(tmp_uv[0]) == 0 || std::isfinite(tmp_uv[1]) == 0)
+                            uv_bad = true;
+                        else {
+                            model.verts[i].uv[0] = tmp_uv[0];
+                            model.verts[i].uv[1] = tmp_uv[1];
+                        }
+                    }
+                    if (std::isfinite(model.verts[i].position[0]) == 0 ||
+                        std::isfinite(model.verts[i].position[1]) == 0 ||
+                        std::isfinite(model.verts[i].position[2]) == 0 ||
+                        (have_normals && (std::isfinite(model.verts[i].normal[0]) == 0 ||
+                                          std::isfinite(model.verts[i].normal[1]) == 0 ||
+                                          std::isfinite(model.verts[i].normal[2]) == 0))) {
                         cJSON_Delete(root);
                         return false;
                     }
                 }
+                if (uv_bad) {
+                    have_uv = false;
+                    for (auto& v : model.verts) v.uv[0] = v.uv[1] = 0.0f;
+                }
                 for (std::uint32_t i = 0; i < ic; ++i) {
                     if (idx_ct->valueint == 5123)
-                        idx[i] = static_cast<std::uint32_t>(bin[idx_off + i * 2U] |
-                                                            (static_cast<std::uint32_t>(
-                                                                 bin[idx_off + i * 2U + 1U])
-                                                             << 8U));
+                        model.idx[i] = static_cast<std::uint32_t>(
+                            bin[idx_off + i * 2U] |
+                            (static_cast<std::uint32_t>(bin[idx_off + i * 2U + 1U]) << 8U));
                     else
-                        idx[i] = U32Le(bin + idx_off + i * 4U);
-                    if (idx[i] >= pc) {
+                        model.idx[i] = U32Le(bin + idx_off + i * 4U);
+                    if (model.idx[i] >= pc) {
                         cJSON_Delete(root);
                         return false;
+                    }
+                }
+                if (!have_normals) {
+                    // Normales suavizadas por área para GLB sin NORMAL (p. ej. Firefox):
+                    // acumular caras y normalizar; degenerado -> +Y.
+                    for (std::uint32_t t = 0; t + 2U < ic; t += 3U) {
+                        Vertex& a = model.verts[model.idx[t]];
+                        Vertex& b = model.verts[model.idx[t + 1U]];
+                        Vertex& c = model.verts[model.idx[t + 2U]];
+                        float e1[3] = {b.position[0] - a.position[0], b.position[1] - a.position[1],
+                                       b.position[2] - a.position[2]};
+                        float e2[3] = {c.position[0] - a.position[0], c.position[1] - a.position[1],
+                                       c.position[2] - a.position[2]};
+                        float fn[3] = {e1[1] * e2[2] - e1[2] * e2[1],
+                                       e1[2] * e2[0] - e1[0] * e2[2],
+                                       e1[0] * e2[1] - e1[1] * e2[0]};
+                        if (std::isfinite(fn[0]) == 0 || std::isfinite(fn[1]) == 0 ||
+                            std::isfinite(fn[2]) == 0)
+                            continue;
+                        for (int k = 0; k < 3; ++k) {
+                            a.normal[k] += fn[k];
+                            b.normal[k] += fn[k];
+                            c.normal[k] += fn[k];
+                        }
+                    }
+                    for (auto& v : model.verts) {
+                        float len = std::sqrt(v.normal[0] * v.normal[0] +
+                                              v.normal[1] * v.normal[1] +
+                                              v.normal[2] * v.normal[2]);
+                        if (len > 1e-12f && std::isfinite(len) != 0) {
+                            v.normal[0] /= len;
+                            v.normal[1] /= len;
+                            v.normal[2] /= len;
+                        } else {
+                            v.normal[0] = 0.0f;
+                            v.normal[1] = 1.0f;
+                            v.normal[2] = 0.0f;
+                        }
+                    }
+                }
+                // Material PBR básico del primer primitivo (opcional, no fatal).
+                if (prim != nullptr) {
+                    cJSON* mat_ref = cJSON_GetObjectItemCaseSensitive(prim, "material");
+                    cJSON* materials = cJSON_GetObjectItemCaseSensitive(root, "materials");
+                    cJSON* mat = (cJSON_IsNumber(mat_ref) != 0 && mat_ref->valueint >= 0)
+                                     ? cJSON_GetArrayItem(materials, mat_ref->valueint)
+                                     : nullptr;
+                    if (cJSON_IsObject(mat) != 0) {
+                        cJSON* pbr =
+                            cJSON_GetObjectItemCaseSensitive(mat, "pbrMetallicRoughness");
+                        if (cJSON_IsObject(pbr) != 0) {
+                            cJSON* bcf =
+                                cJSON_GetObjectItemCaseSensitive(pbr, "baseColorFactor");
+                            if (cJSON_IsArray(bcf) != 0 && cJSON_GetArraySize(bcf) == 4) {
+                                float cf[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+                                bool cf_ok = true;
+                                for (int k = 0; k < 4; ++k) {
+                                    cJSON* n = cJSON_GetArrayItem(bcf, k);
+                                    if (cJSON_IsNumber(n) == 0 ||
+                                        std::isfinite(n->valuedouble) == 0) {
+                                        cf_ok = false;
+                                        break;
+                                    }
+                                    float fv = static_cast<float>(n->valuedouble);
+                                    if (fv < 0.0f) fv = 0.0f;
+                                    if (fv > 1.0f) fv = 1.0f;
+                                    cf[k] = fv;
+                                }
+                                if (cf_ok) std::memcpy(model.base_factor, cf, sizeof(cf));
+                            }
+                            cJSON* bct =
+                                cJSON_GetObjectItemCaseSensitive(pbr, "baseColorTexture");
+                            cJSON* bct_idx = bct != nullptr
+                                                 ? cJSON_GetObjectItemCaseSensitive(bct, "index")
+                                                 : nullptr;
+                            cJSON* textures = cJSON_GetObjectItemCaseSensitive(root, "textures");
+                            cJSON* tex = (cJSON_IsNumber(bct_idx) != 0 && bct_idx->valueint >= 0)
+                                             ? cJSON_GetArrayItem(textures, bct_idx->valueint)
+                                             : nullptr;
+                            cJSON* src_ref = tex != nullptr
+                                                 ? cJSON_GetObjectItemCaseSensitive(tex, "source")
+                                                 : nullptr;
+                            cJSON* images = cJSON_GetObjectItemCaseSensitive(root, "images");
+                            cJSON* img = (cJSON_IsNumber(src_ref) != 0 && src_ref->valueint >= 0)
+                                             ? cJSON_GetArrayItem(images, src_ref->valueint)
+                                             : nullptr;
+                            cJSON* img_bv_ref =
+                                img != nullptr
+                                    ? cJSON_GetObjectItemCaseSensitive(img, "bufferView")
+                                    : nullptr;
+                            cJSON* img_bv =
+                                (cJSON_IsNumber(img_bv_ref) != 0 && img_bv_ref->valueint >= 0)
+                                    ? cJSON_GetArrayItem(views, img_bv_ref->valueint)
+                                    : nullptr;
+                            if (cJSON_IsObject(img_bv) != 0) {
+                                std::uint32_t img_off = u32(img_bv, "byteOffset");
+                                std::uint32_t img_len = u32(img_bv, "byteLength");
+                                if (img_len > 0 && img_len <= 32U * 1024U * 1024U &&
+                                    img_off <= bin_bytes && img_len <= bin_bytes - img_off) {
+                                    int w = 0, h = 0, comp = 0;
+                                    unsigned char* px = stbi_load_from_memory(
+                                        bin + img_off, static_cast<int>(img_len), &w, &h, &comp,
+                                        4);
+                                    if (px != nullptr && w > 0 && h > 0 && w <= 4096 && h <= 4096 &&
+                                        static_cast<std::uint64_t>(w) *
+                                                static_cast<std::uint64_t>(h) * 4ULL <=
+                                            64ULL * 1024ULL * 1024ULL) {
+                                        model.tex_rgba.assign(
+                                            px, px + static_cast<std::size_t>(w) *
+                                                        static_cast<std::size_t>(h) * 4U);
+                                        model.tex_w = w;
+                                        model.tex_h = h;
+                                    } else {
+                                        std::fprintf(
+                                            stderr,
+                                            "Aviso: imagen de '%s' no decodificable, sin textura.\n",
+                                            asset_id.c_str());
+                                    }
+                                    if (px != nullptr) stbi_image_free(px);
+                                }
+                            }
+                        }
                     }
                 }
                 ok = true;
@@ -921,14 +1131,15 @@ ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset
         err.set("LIMIT", "Se superó la caché de modelos del renderer.");
         return nullptr;
     }
-    std::vector<Vertex> verts;
-    std::vector<std::uint32_t> indices;
+    LoadedModel loaded;
     Error tmp;
-    if (!LoadAssetGeometry(proj, asset_id, verts, indices, tmp)) {
+    if (!LoadAssetGeometry(proj, asset_id, loaded, tmp)) {
         err.set(tmp.code.empty() ? "BAD_FORMAT" : tmp.code,
                 tmp.message.empty() ? "El GLB no contiene una malla compatible." : tmp.message);
         return nullptr;
     }
+    std::vector<Vertex>& verts = loaded.verts;
+    std::vector<std::uint32_t>& indices = loaded.idx;
     std::uint64_t vb = static_cast<std::uint64_t>(verts.size()) * sizeof(Vertex);
     std::uint64_t ib = static_cast<std::uint64_t>(indices.size()) * sizeof(std::uint32_t);
     if (verts.empty() || indices.empty() || vb > 128ULL * 1024ULL * 1024ULL ||
@@ -938,11 +1149,38 @@ ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset
     }
     ModelCache m;
     m.asset_id = asset_id;
+    std::memcpy(m.base_factor, loaded.base_factor, sizeof(m.base_factor));
     // Bounds en espacio del modelo para picking proporcional a lo visible.
     for (const auto& v : verts) {
         for (int i = 0; i < 3; ++i) {
             if (v.position[i] < m.bmin[i]) m.bmin[i] = v.position[i];
             if (v.position[i] > m.bmax[i]) m.bmax[i] = v.position[i];
+        }
+    }
+    if (!loaded.tex_rgba.empty() && loaded.tex_w > 0 && loaded.tex_h > 0) {
+        D3D11_TEXTURE2D_DESC td{};
+        td.Width = static_cast<UINT>(loaded.tex_w);
+        td.Height = static_cast<UINT>(loaded.tex_h);
+        td.MipLevels = 1;
+        td.ArraySize = 1;
+        td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        td.SampleDesc.Count = 1;
+        td.Usage = D3D11_USAGE_DEFAULT;
+        td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+        D3D11_SUBRESOURCE_DATA tsd{};
+        tsd.pSysMem = loaded.tex_rgba.data();
+        tsd.SysMemPitch = static_cast<UINT>(loaded.tex_w) * 4U;
+        ID3D11Texture2D* tex = nullptr;
+        HRESULT thr = ctx.device->CreateTexture2D(&td, &tsd, &tex);
+        if (SUCCEEDED(thr)) thr = ctx.device->CreateShaderResourceView(tex, nullptr, &m.texture);
+        if (tex != nullptr) tex->Release();
+        if (FAILED(thr)) {
+            if (m.texture != nullptr) {
+                m.texture->Release();
+                m.texture = nullptr;
+            }
+            std::fprintf(stderr, "Aviso: textura de '%s' no utilizable en GPU, sin textura.\n",
+                         asset_id.c_str());
         }
     }
     D3D11_BUFFER_DESC desc{};
@@ -952,6 +1190,7 @@ ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset
     D3D11_SUBRESOURCE_DATA data{};
     data.pSysMem = verts.data();
     if (FAILED(ctx.device->CreateBuffer(&desc, &data, &m.vertices))) {
+        if (m.texture != nullptr) m.texture->Release();
         err.set("GPU", "No se pudo crear el buffer de vértices del asset '" + asset_id + "'.");
         return nullptr;
     }
@@ -960,6 +1199,7 @@ ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset
     data.pSysMem = indices.data();
     if (FAILED(ctx.device->CreateBuffer(&desc, &data, &m.indices))) {
         if (m.vertices != nullptr) m.vertices->Release();
+        if (m.texture != nullptr) m.texture->Release();
         err.set("GPU", "No se pudo crear el buffer de índices del asset '" + asset_id + "'.");
         return nullptr;
     }
@@ -1074,14 +1314,19 @@ const char* kVsSrc =
     "  float4 light_dir;"
     "  float4 light_col;"
     "  float4 eye_pos;"
+    "  float4 tex_params;"
+    "  float4 base_col;"
     "};"
-    "struct I { float3 p:POSITION; float3 c:COLOR; };"
-    "struct O { float4 p:SV_POSITION; float3 c:COLOR; float3 wp:TEXCOORD0; };"
+    "struct I { float3 p:POSITION; float3 n:NORMAL; float3 c:COLOR; float2 uv:TEXCOORD0; };"
+    "struct O { float4 p:SV_POSITION; float3 c:COLOR; float3 wp:TEXCOORD0; float3 wn:TEXCOORD1;"
+    " float2 uv:TEXCOORD2; };"
     "O VSMain(I i) {"
     "  O o;"
     "  o.p  = mul(float4(i.p,1), wvp);"
-    "  o.c  = i.c * tint.rgb;"
+    "  o.c  = i.c * tint.rgb * base_col.rgb;"
     "  o.wp = mul(float4(i.p,1), world).xyz;"
+    "  o.wn = normalize(mul(i.n, (float3x3)world));"
+    "  o.uv = i.uv;"
     "  return o;"
     "}";
 const char* kPsSrc =
@@ -1092,16 +1337,23 @@ const char* kPsSrc =
     "  float4 light_dir;"
     "  float4 light_col;"
     "  float4 eye_pos;"
+    "  float4 tex_params;"
+    "  float4 base_col;"
     "};"
-    "struct I { float4 p:SV_POSITION; float3 c:COLOR; float3 wp:TEXCOORD0; };"
+    "Texture2D albedo_tex : register(t0);"
+    "SamplerState albedo_smp : register(s0);"
+    "struct I { float4 p:SV_POSITION; float3 c:COLOR; float3 wp:TEXCOORD0; float3 wn:TEXCOORD1;"
+    " float2 uv:TEXCOORD2; };"
     "float4 PSMain(I i) : SV_TARGET {"
     "  if (tint.a < 0.5) return float4(i.c, 1);"
-    "  float3 N = normalize(cross(ddx(i.wp), ddy(i.wp)));"
+    "  float3 albedo = i.c;"
+    "  if (tex_params.x > 0.5) albedo *= albedo_tex.Sample(albedo_smp, i.uv).rgb;"
+    "  float3 N = normalize(i.wn);"
     "  float3 L = normalize(-light_dir.xyz);"
     "  float3 V = normalize(eye_pos.xyz - i.wp);"
-    "  float3 ambient = 0.15 * i.c;"
+    "  float3 ambient = 0.15 * albedo;"
     "  float NdotL = saturate(dot(N, L));"
-    "  float3 diffuse = i.c * light_col.rgb * NdotL;"
+    "  float3 diffuse = albedo * light_col.rgb * NdotL;"
     "  float3 H = normalize(L + V);"
     "  float spec = pow(saturate(dot(N, H)), 32.0);"
     "  float3 specular = light_col.rgb * spec * 0.4;"
@@ -1109,12 +1361,44 @@ const char* kPsSrc =
     "}";
 
 bool Initialize(Context& ctx, HWND hwnd, Error& err) {
-    static const Vertex kCube[8] = {{{-1, -1, -1}, {1, .1f, .1f}}, {{-1, 1, -1}, {.1f, 1, .1f}},
-                                    {{1, 1, -1}, {.1f, .3f, 1}},   {{1, -1, -1}, {1, 1, .1f}},
-                                    {{-1, -1, 1}, {1, .1f, 1}},    {{-1, 1, 1}, {.1f, 1, 1}},
-                                    {{1, 1, 1}, {1, 1, 1}},        {{1, -1, 1}, {.5f, .5f, .5f}}};
-    static const unsigned short kIdx[36] = {0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1,
-                                            3, 2, 6, 3, 6, 7, 1, 5, 6, 1, 6, 2, 0, 3, 7, 0, 7, 4};
+    // Cubo con normales por cara (24 vértices: 4 por cara). Mismo winding e
+    // interpolación de color que el cubo de 8 vértices anterior; las normales
+    // planas sustituyen al facetado por derivadas del shader viejo.
+    static const Vertex kCube[24] = {
+        // atrás (z=-1)
+        {{-1, -1, -1}, {0, 0, -1}, {1, .1f, .1f}, {0, 0}},
+        {{-1, 1, -1}, {0, 0, -1}, {.1f, 1, .1f}, {0, 0}},
+        {{1, 1, -1}, {0, 0, -1}, {.1f, .3f, 1}, {0, 0}},
+        {{1, -1, -1}, {0, 0, -1}, {1, 1, .1f}, {0, 0}},
+        // delante (z=+1)
+        {{-1, -1, 1}, {0, 0, 1}, {1, .1f, 1}, {0, 0}},
+        {{1, -1, 1}, {0, 0, 1}, {.5f, .5f, .5f}, {0, 0}},
+        {{1, 1, 1}, {0, 0, 1}, {1, 1, 1}, {0, 0}},
+        {{-1, 1, 1}, {0, 0, 1}, {.1f, 1, 1}, {0, 0}},
+        // izquierda (x=-1)
+        {{-1, -1, -1}, {-1, 0, 0}, {1, .1f, .1f}, {0, 0}},
+        {{-1, -1, 1}, {-1, 0, 0}, {1, .1f, 1}, {0, 0}},
+        {{-1, 1, 1}, {-1, 0, 0}, {.1f, 1, 1}, {0, 0}},
+        {{-1, 1, -1}, {-1, 0, 0}, {.1f, 1, .1f}, {0, 0}},
+        // derecha (x=+1)
+        {{1, -1, -1}, {1, 0, 0}, {1, 1, .1f}, {0, 0}},
+        {{1, 1, -1}, {1, 0, 0}, {.1f, .3f, 1}, {0, 0}},
+        {{1, 1, 1}, {1, 0, 0}, {1, 1, 1}, {0, 0}},
+        {{1, -1, 1}, {1, 0, 0}, {.5f, .5f, .5f}, {0, 0}},
+        // arriba (y=+1)
+        {{-1, 1, -1}, {0, 1, 0}, {.1f, 1, .1f}, {0, 0}},
+        {{-1, 1, 1}, {0, 1, 0}, {.1f, 1, 1}, {0, 0}},
+        {{1, 1, 1}, {0, 1, 0}, {1, 1, 1}, {0, 0}},
+        {{1, 1, -1}, {0, 1, 0}, {.1f, .3f, 1}, {0, 0}},
+        // abajo (y=-1)
+        {{-1, -1, -1}, {0, -1, 0}, {1, .1f, .1f}, {0, 0}},
+        {{1, -1, -1}, {0, -1, 0}, {1, 1, .1f}, {0, 0}},
+        {{1, -1, 1}, {0, -1, 0}, {.5f, .5f, .5f}, {0, 0}},
+        {{-1, -1, 1}, {0, -1, 0}, {1, .1f, 1}, {0, 0}},
+    };
+    static const unsigned short kIdx[36] = {0,  1,  2,  0,  2,  3,  4,  5,  6,  4,  6,  7,
+                                            8,  9,  10, 8,  10, 11, 12, 13, 14, 12, 14, 15,
+                                            16, 17, 18, 16, 18, 19, 20, 21, 22, 20, 22, 23};
     RECT rc{};
     ::GetClientRect(hwnd, &rc);
     int w = rc.right - rc.left;
@@ -1169,11 +1453,13 @@ bool Initialize(Context& ctx, HWND hwnd, Error& err) {
     if (SUCCEEDED(hr))
         hr = ctx.device->CreatePixelShader(psb->GetBufferPointer(), psb->GetBufferSize(), nullptr,
                                            &ctx.ps);
-    D3D11_INPUT_ELEMENT_DESC elems[2] = {
+    D3D11_INPUT_ELEMENT_DESC elems[4] = {
         {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0}};
+        {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24, D3D11_INPUT_PER_VERTEX_DATA, 0},
+        {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36, D3D11_INPUT_PER_VERTEX_DATA, 0}};
     if (SUCCEEDED(hr))
-        hr = ctx.device->CreateInputLayout(elems, 2, vsb->GetBufferPointer(),
+        hr = ctx.device->CreateInputLayout(elems, 4, vsb->GetBufferPointer(),
                                            vsb->GetBufferSize(), &ctx.layout);
     if (vsb != nullptr) vsb->Release();
     if (psb != nullptr) psb->Release();
@@ -1237,6 +1523,19 @@ bool Initialize(Context& ctx, HWND hwnd, Error& err) {
         ds.DepthFunc = D3D11_COMPARISON_LESS;
         ds.StencilEnable = FALSE;
         hr = ctx.device->CreateDepthStencilState(&ds, &ctx.no_depth);
+    }
+    if (SUCCEEDED(hr)) {
+        // Muestreador lineal con clamp para baseColorTexture.
+        D3D11_SAMPLER_DESC smp{};
+        smp.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        smp.AddressU = D3D11_TEXTURE_ADDRESS_CLAMP;
+        smp.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        smp.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        smp.MaxAnisotropy = 1;
+        smp.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        smp.MinLOD = 0.0f;
+        smp.MaxLOD = 0.0f;  // sin mipmaps: una sola capa
+        hr = ctx.device->CreateSamplerState(&smp, &ctx.sampler);
     }
     if (FAILED(hr)) {
         err.set("GPU", "No se pudo crear los buffers.");
@@ -1517,10 +1816,14 @@ void DrawCrosshair(Context& ctx, const Project& proj, const Scene& scene, const 
     }
     float ax = 0.035f / aspect, gap = 0.012f / aspect;  // brazos corregidos por aspecto
     const float ay = 0.035f, gy = 0.012f;
-    Vertex v[8] = {{{-ax, 0, 0}, {cr, cg, cb}}, {{-gap, 0, 0}, {cr, cg, cb}},
-                   {{gap, 0, 0}, {cr, cg, cb}},  {{ax, 0, 0}, {cr, cg, cb}},
-                   {{0, -ay, 0}, {cr, cg, cb}},  {{0, -gy, 0}, {cr, cg, cb}},
-                   {{0, gy, 0}, {cr, cg, cb}},   {{0, ay, 0}, {cr, cg, cb}}};
+    Vertex v[8] = {{{-ax, 0, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{-gap, 0, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{gap, 0, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{ax, 0, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{0, -ay, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{0, -gy, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{0, gy, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}},
+                   {{0, ay, 0}, {0, 0, 1}, {cr, cg, cb}, {0, 0}}};
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(ctx.context->Map(ctx.cross_vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped))) return;
     std::memcpy(mapped.pData, v, sizeof(v));
@@ -1564,16 +1867,26 @@ void DrawGizmo(Context& ctx, const Scene& scene, const Transform& cam_t, const f
         v[n].position[0] = ax;
         v[n].position[1] = ay;
         v[n].position[2] = az;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = r;
         v[n].color[1] = g;
         v[n].color[2] = b;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
         v[n].position[0] = bx;
         v[n].position[1] = by;
         v[n].position[2] = bz;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = r;
         v[n].color[1] = g;
         v[n].color[2] = b;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
     };
     const float dirs[3][3] = {{1, 0, 0}, {0, 1, 0}, {0, 0, 1}};
@@ -1648,25 +1961,40 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = 0.10f;
         v[n].color[1] = 0.12f;
         v[n].color[2] = 0.17f;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
         ndc(bx, by, nx, ny);
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = 0.10f;
         v[n].color[1] = 0.12f;
         v[n].color[2] = 0.17f;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
         ndc(cx, cy, nx, ny);
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = 0.10f;
         v[n].color[1] = 0.12f;
         v[n].color[2] = 0.17f;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
     };
     auto edge = [&](float ax, float ay, float bx, float by) {
@@ -1675,17 +2003,27 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = 0.55f;
         v[n].color[1] = 0.60f;
         v[n].color[2] = 0.68f;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
         ndc(bx, by, nx, ny);
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = 0.55f;
         v[n].color[1] = 0.60f;
         v[n].color[2] = 0.68f;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
     };
     float x0 = static_cast<float>(w - M - S), y0 = static_cast<float>(M);
@@ -1738,17 +2076,27 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = cr * 0.35f;
         v[n].color[1] = cg * 0.35f;
         v[n].color[2] = cb * 0.35f;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
         ndc(ex, ey, nx, ny);
         v[n].position[0] = nx;
         v[n].position[1] = ny;
         v[n].position[2] = 0.0f;
+        v[n].normal[0] = 0.0f;
+        v[n].normal[1] = 0.0f;
+        v[n].normal[2] = 1.0f;
         v[n].color[0] = cr;
         v[n].color[1] = cg;
         v[n].color[2] = cb;
+        v[n].uv[0] = 0.0f;
+        v[n].uv[1] = 0.0f;
         ++n;
     };
     axis(1, 0, 0, 1, 0.15f, 0.15f);
@@ -1816,6 +2164,7 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
     ctx.context->PSSetShader(ctx.ps, nullptr, 0);
     ctx.context->VSSetConstantBuffers(0, 1, &ctx.matrices);
     ctx.context->PSSetConstantBuffers(0, 1, &ctx.matrices);
+    ctx.context->PSSetSamplers(0, 1, &ctx.sampler);
     float aspect = height > 0 ? static_cast<float>(width) / static_cast<float>(height) : 4.0f / 3.0f;
     float view[16], proj_m[16];
     bool has_view = ViewMatrix(view, *cam_t);
@@ -1866,6 +2215,18 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
         sb.tint[1] = g;
         sb.tint[2] = b;
         sb.tint[3] = 1.0f;  // 1.0 = iluminación Blinn-Phong activa
+        sb.base_col[0] = sb.base_col[1] = sb.base_col[2] = 1.0f;
+        sb.base_col[3] = 1.0f;
+        sb.tex_params[0] = sb.tex_params[1] = sb.tex_params[2] = sb.tex_params[3] = 0.0f;
+        ID3D11ShaderResourceView* srv = nullptr;
+        if (model != nullptr) {
+            std::memcpy(sb.base_col, model->base_factor, sizeof(sb.base_col));
+            if (model->texture != nullptr) {
+                srv = model->texture;
+                sb.tex_params[0] = 1.0f;
+            }
+        }
+        ctx.context->PSSetShaderResources(0, 1, &srv);
         if (!ctx.selected.empty() && e.id == ctx.selected) {
             sb.tint[0] = sb.tint[0] * 0.45f + 0.55f;
             sb.tint[1] = sb.tint[1] * 0.45f + 0.55f;

@@ -8,13 +8,21 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
-# cJSON vendored: compila como C sin warnings-as-errors propios
+# cJSON + stb_image vendored: compilan como C sin warnings-as-errors propios
 add_library(cjson STATIC third_party/cjson/cJSON.c)
 target_include_directories(cjson PUBLIC third_party/cjson)
 if(MSVC)
   target_compile_options(cjson PRIVATE /W1)
 else()
   target_compile_options(cjson PRIVATE -w)
+endif()
+
+add_library(stb STATIC third_party/stb/stb_image.c)
+target_include_directories(stb PUBLIC third_party/stb)
+if(MSVC)
+  target_compile_options(stb PRIVATE /W1)
+else()
+  target_compile_options(stb PRIVATE -w)
 endif()
 
 add_library(oasis_core STATIC
@@ -34,7 +42,8 @@ add_executable(oasis
   src/main.cpp
   src/renderer_win32_d3d11.cpp
 )
-target_link_libraries(oasis PRIVATE oasis_core)
+target_include_directories(oasis PRIVATE third_party/stb)
+target_link_libraries(oasis PRIVATE oasis_core stb)
 if(MSVC)
   target_compile_options(oasis PRIVATE /W4 /WX /permissive-)
 else()
