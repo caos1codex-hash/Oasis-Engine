@@ -226,6 +226,48 @@ std::string FmtFloat(float v) {
     return std::string(buf);
 }
 
+void RotationMatrix33Impl(float r[9], const Transform& t) {
+    float cy = std::cos(t.rotation.y), sy = std::sin(t.rotation.y);
+    float cp = std::cos(t.rotation.x), sp = std::sin(t.rotation.x);
+    float cr = std::cos(t.rotation.z), sr = std::sin(t.rotation.z);
+    r[0] = cy * cr - sy * sp * sr;
+    r[1] = cy * sr + sy * sp * cr;
+    r[2] = -sy * cp;
+    r[3] = -cp * sr;
+    r[4] = cp * cr;
+    r[5] = sp;
+    r[6] = sy * cr + cy * sp * sr;
+    r[7] = sy * sr - cy * sp * cr;
+    r[8] = cy * cp;
+}
+
+void BoxWorldAABBImpl(const float lmn[3], const float lmx[3], const Transform& t, float mn[3],
+                      float mx[3]) {
+    float ex = (t.scale.x != 0.0f ? t.scale.x : 1.0f);
+    float ey = (t.scale.y != 0.0f ? t.scale.y : 1.0f);
+    float ez = (t.scale.z != 0.0f ? t.scale.z : 1.0f);
+    float r[9];
+    RotationMatrix33Impl(r, t);
+    mn[0] = mn[1] = mn[2] = 1e30f;
+    mx[0] = mx[1] = mx[2] = -1e30f;
+    for (int ix = 0; ix < 2; ++ix)
+        for (int iy = 0; iy < 2; ++iy)
+            for (int iz = 0; iz < 2; ++iz) {
+                float lx = (ix == 0 ? lmn[0] : lmx[0]) * ex;
+                float ly = (iy == 0 ? lmn[1] : lmx[1]) * ey;
+                float lz = (iz == 0 ? lmn[2] : lmx[2]) * ez;
+                float wx = r[0] * lx + r[3] * ly + r[6] * lz + t.position.x;
+                float wy = r[1] * lx + r[4] * ly + r[7] * lz + t.position.y;
+                float wz = r[2] * lx + r[5] * ly + r[8] * lz + t.position.z;
+                if (wx < mn[0]) mn[0] = wx;
+                if (wy < mn[1]) mn[1] = wy;
+                if (wz < mn[2]) mn[2] = wz;
+                if (wx > mx[0]) mx[0] = wx;
+                if (wy > mx[1]) mx[1] = wy;
+                if (wz > mx[2]) mx[2] = wz;
+            }
+}
+
 void DefaultEntity(Entity& e, const std::string& id) {
     e.id = id;
     e.name = id;
@@ -233,10 +275,13 @@ void DefaultEntity(Entity& e, const std::string& id) {
     e.has_mesh = false;
     e.has_camera = false;
     e.has_light = false;
+    e.has_rigidbody = false;
+    e.has_collider = false;
     e.transform = Transform{};
     e.mesh = Mesh{};
     e.camera = Camera{};
     e.light = Light{};
+    e.rigidbody = RigidBody{};
 }
 
 bool WriteProjectFile(const Project& proj, Error& err) {
@@ -254,6 +299,13 @@ bool WriteProjectFile(const Project& proj, Error& err) {
 
 bool ValidId(const std::string& id) { return ValidNameImpl(id); }
 bool ValidSceneName(const std::string& name) { return ValidNameImpl(name); }
+
+void RotationMatrix33(float r[9], const Transform& t) { RotationMatrix33Impl(r, t); }
+
+void BoxWorldAABB(const float lmn[3], const float lmx[3], const Transform& t, float mn[3],
+                  float mx[3]) {
+    BoxWorldAABBImpl(lmn, lmx, t, mn, mx);
+}
 
 bool ProjectCreate(const std::filesystem::path& root, const std::string& name, Error& err) {
     err.clear();
@@ -526,6 +578,8 @@ bool SceneLoadActive(const Project& proj, Scene& out, Error& err) {
         cJSON* m = cJSON_GetObjectItemCaseSensitive(comps, "Mesh");
         cJSON* c = cJSON_GetObjectItemCaseSensitive(comps, "Camera");
         cJSON* l = cJSON_GetObjectItemCaseSensitive(comps, "Light");
+        cJSON* rb = cJSON_GetObjectItemCaseSensitive(comps, "RigidBody");
+        cJSON* co = cJSON_GetObjectItemCaseSensitive(comps, "Collider");
         if (t != nullptr) {
             Error t2;
             cJSON* pos = JsonMember(t, "position", t2);
@@ -608,6 +662,40 @@ bool SceneLoadActive(const Project& proj, Scene& out, Error& err) {
             }
             e.has_light = true;
         }
+        if (rb != nullptr) {
+            if (cJSON_IsObject(rb) == 0) {
+                err.set("BAD_FORMAT", "RigidBody debe ser un objeto.");
+                return false;
+            }
+            cJSON* vel = cJSON_GetObjectItemCaseSensitive(rb, "velocity");
+            cJSON* mass = cJSON_GetObjectItemCaseSensitive(rb, "mass");
+            cJSON* grav = cJSON_GetObjectItemCaseSensitive(rb, "use_gravity");
+            if (vel != nullptr && !JsonVec3(vel, e.rigidbody.velocity, "RigidBody.velocity", err))
+                return false;
+            if (mass != nullptr) {
+                if (cJSON_IsNumber(mass) == 0 || std::isfinite(mass->valuedouble) == 0 ||
+                    mass->valuedouble <= 0.0 || mass->valuedouble > 1000000.0) {
+                    err.set("BAD_FORMAT", "RigidBody.mass debe ser finita entre 0 y 1000000.");
+                    return false;
+                }
+                e.rigidbody.mass = static_cast<float>(mass->valuedouble);
+            }
+            if (grav != nullptr) {
+                if (cJSON_IsBool(grav) == 0) {
+                    err.set("BAD_FORMAT", "RigidBody.use_gravity debe ser booleano.");
+                    return false;
+                }
+                e.rigidbody.use_gravity = cJSON_IsTrue(grav) != 0;
+            }
+            e.has_rigidbody = true;
+        }
+        if (co != nullptr) {
+            if (cJSON_IsObject(co) == 0) {
+                err.set("BAD_FORMAT", "Collider debe ser un objeto.");
+                return false;
+            }
+            e.has_collider = true;
+        }
         loaded.entities.push_back(std::move(e));
     }
     out = std::move(loaded);
@@ -668,6 +756,19 @@ bool SceneSaveActive(const Project& proj, const Scene& scene, Error& err) {
             oss << "\n        \"Light\": {\"color\": [" << FmtFloat(e.light.color.x) << ", "
                 << FmtFloat(e.light.color.y) << ", " << FmtFloat(e.light.color.z)
                 << "], \"intensity\": " << FmtFloat(e.light.intensity) << "}";
+            first = false;
+        }
+        if (e.has_rigidbody) {
+            if (!first) oss << ",";
+            oss << "\n        \"RigidBody\": {\"velocity\": [" << FmtFloat(e.rigidbody.velocity.x)
+                << ", " << FmtFloat(e.rigidbody.velocity.y) << ", " << FmtFloat(e.rigidbody.velocity.z)
+                << "], \"mass\": " << FmtFloat(e.rigidbody.mass) << ", \"use_gravity\": "
+                << (e.rigidbody.use_gravity ? "true" : "false") << "}";
+            first = false;
+        }
+        if (e.has_collider) {
+            if (!first) oss << ",";
+            oss << "\n        \"Collider\": {}";
         }
         oss << "\n      }\n    }" << (i + 1 == scene.entities.size() ? "" : ",") << "\n";
     }
@@ -733,6 +834,22 @@ bool EntityAddComponent(Scene& scene, const std::string& id, const std::string& 
             return false;
         }
         e->has_light = true;
+        return true;
+    }
+    if (component == "RigidBody") {
+        if (e->has_rigidbody) {
+            err.set("ALREADY_EXISTS", "La entidad '" + id + "' ya tiene RigidBody.");
+            return false;
+        }
+        e->has_rigidbody = true;
+        return true;
+    }
+    if (component == "Collider") {
+        if (e->has_collider) {
+            err.set("ALREADY_EXISTS", "La entidad '" + id + "' ya tiene Collider.");
+            return false;
+        }
+        e->has_collider = true;
         return true;
     }
     err.set("INVALID_ARG", "Componente '" + component + "' no disponible en V0.2.");
@@ -882,6 +999,25 @@ bool EntitySetCamera(Scene& scene, const std::string& id, float fov_degrees, Err
     return true;
 }
 
+bool EntitySetVelocity(Scene& scene, const std::string& id, const Vec3& v, Error& err) {
+    err.clear();
+    Entity* e = SceneGetEntityMut(scene, id);
+    if (e == nullptr) {
+        err.set("NOT_FOUND", "La entidad '" + id + "' no existe.");
+        return false;
+    }
+    if (!e->has_rigidbody) {
+        err.set("INVALID_ARG", "La entidad '" + id + "' no tiene RigidBody.");
+        return false;
+    }
+    if (std::isfinite(v.x) == 0 || std::isfinite(v.y) == 0 || std::isfinite(v.z) == 0) {
+        err.set("INVALID_ARG", "La velocidad debe ser finita.");
+        return false;
+    }
+    e->rigidbody.velocity = v;
+    return true;
+}
+
 std::string JsonEscape(const std::string& s) {
     std::string out;
     out.reserve(s.size() + 2);
@@ -943,6 +1079,19 @@ std::string EntityToJson(const Entity& e) {
         oss << "\"Light\":{\"color\":[" << FmtFloat(e.light.color.x) << ","
             << FmtFloat(e.light.color.y) << "," << FmtFloat(e.light.color.z)
             << "],\"intensity\":" << FmtFloat(e.light.intensity) << "}";
+        first = false;
+    }
+    if (e.has_rigidbody) {
+        if (!first) oss << ",";
+        oss << "\"RigidBody\":{\"velocity\":[" << FmtFloat(e.rigidbody.velocity.x) << ","
+            << FmtFloat(e.rigidbody.velocity.y) << "," << FmtFloat(e.rigidbody.velocity.z)
+            << "],\"mass\":" << FmtFloat(e.rigidbody.mass) << ",\"use_gravity\":"
+            << (e.rigidbody.use_gravity ? "true" : "false") << "}";
+        first = false;
+    }
+    if (e.has_collider) {
+        if (!first) oss << ",";
+        oss << "\"Collider\":{}";
     }
     oss << "}}";
     return oss.str();

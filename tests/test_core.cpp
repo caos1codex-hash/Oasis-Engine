@@ -270,6 +270,52 @@ int main() {
         EXPECT(!oasis::SceneLoadActive(proj, no_sky, err), "sky tipo malo debe fallar");
     }
 
+    // 9. Física: cubo cae sobre suelo estático y reposa (headless, determinista)
+    {
+        oasis::Scene phys;
+        phys.name = "Main";
+        EXPECT(oasis::SceneAddEntity(phys, "Floor", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Floor", "Transform", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Floor", "Collider", err), err.message.c_str());
+        oasis::Vec3 fpos{0.0f, -0.25f, 0.0f};
+        EXPECT(oasis::EntitySetTransform(phys, "Floor", "position", fpos, err),
+               err.message.c_str());
+        oasis::Vec3 fscl{10.0f, 0.5f, 10.0f};
+        EXPECT(oasis::EntitySetTransform(phys, "Floor", "scale", fscl, err), err.message.c_str());
+        EXPECT(oasis::SceneAddEntity(phys, "Box", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Box", "Transform", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Box", "RigidBody", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Box", "Collider", err), err.message.c_str());
+        oasis::Vec3 bpos{0.0f, 5.0f, 0.0f};
+        EXPECT(oasis::EntitySetTransform(phys, "Box", "position", bpos, err), err.message.c_str());
+        oasis::Runtime prt;
+        EXPECT(prt.init(&phys, err), err.message.c_str());
+        for (int t = 0; t < 300; ++t) EXPECT(prt.update(1.0 / 60.0, err), err.message.c_str());
+        const oasis::Entity* box = oasis::SceneGetEntity(phys, "Box");
+        EXPECT(box != nullptr, "caja existe tras simular");
+        // Suelo: cara superior y=0; caja 1x1x1 -> reposo en y=0.5, velocidad 0.
+        EXPECT(box != nullptr && box->transform.position.y > 0.4f &&
+                   box->transform.position.y < 0.6f,
+               "caja reposa sobre el suelo");
+        EXPECT(box != nullptr && box->rigidbody.velocity.x == 0.0f &&
+                   box->rigidbody.velocity.y == 0.0f && box->rigidbody.velocity.z == 0.0f,
+               "caja dormida en reposo");
+        // Sin Transform no integra ni colisiona (se ignora, no falla).
+        EXPECT(oasis::SceneAddEntity(phys, "Ghost", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Ghost", "RigidBody", err), err.message.c_str());
+        EXPECT(oasis::EntityAddComponent(phys, "Ghost", "Collider", err), err.message.c_str());
+        EXPECT(prt.update(1.0 / 60.0, err), err.message.c_str());
+        // JSON inválido de física se rechaza.
+        fs::path spath3 = root / "scenes" / "Main.scene.json";
+        EXPECT(WriteText(spath3, "{\"format\":1,\"name\":\"Main\",\"entities\":[{\"id\":\"X\","
+                                 "\"components\":{\"RigidBody\":{\"velocity\":[0,0,0],\"mass\":0,"
+                                 "\"use_gravity\":true}}}]}"),
+               "escribir masa 0");
+        oasis::Scene badphys;
+        EXPECT(!oasis::SceneLoadActive(proj, badphys, err), "masa 0 debe fallar");
+        prt.shutdown();
+    }
+
     // 6. Delete entidad persiste
     EXPECT(oasis::EntityDelete(again, "Cube", err), err.message.c_str());
     EXPECT(again.entities.empty(), "delete memoria");

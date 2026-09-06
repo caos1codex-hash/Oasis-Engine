@@ -57,6 +57,12 @@ struct Light {
     float intensity = 1.0f;
 };
 
+struct RigidBody {
+    Vec3 velocity{};
+    float mass = 1.0f;
+    bool use_gravity = true;
+};
+
 struct Entity {
     std::string id;
     std::string name;
@@ -64,10 +70,13 @@ struct Entity {
     bool has_mesh = false;
     bool has_camera = false;
     bool has_light = false;
+    bool has_rigidbody = false;
+    bool has_collider = false;  // caja unidad x escala (ver BoxWorldAABB)
     Transform transform{};
     Mesh mesh{};
     Camera camera{};
     Light light{};
+    RigidBody rigidbody{};
 };
 
 struct Scene {
@@ -114,6 +123,15 @@ bool EntitySetLight(Scene& scene, const std::string& id, const Vec3& c, float in
                     Error& err);
 // FOV de la cámara en grados (1..179). Exige Camera.
 bool EntitySetCamera(Scene& scene, const std::string& id, float fov_degrees, Error& err);
+// Velocidad del RigidBody. Exige RigidBody.
+bool EntitySetVelocity(Scene& scene, const std::string& id, const Vec3& v, Error& err);
+
+// Matemáticas compartidas core/renderer (row-vector, como el shader).
+// R = Ry(yaw) * Rx(pitch) * Rz(roll); con pitch=roll=0 es yaw-only.
+void RotationMatrix33(float r[9], const Transform& t);
+// AABB mundo de la caja local [lmn,lmx] escalada, rotada y trasladada.
+void BoxWorldAABB(const float lmn[3], const float lmx[3], const Transform& t, float mn[3],
+                  float mx[3]);
 
 // JSON para CLI (siempre válido, con escape)
 std::string JsonEscape(const std::string& s);

@@ -39,7 +39,7 @@ oasis scene list [--project RUTA]
 oasis scene delete NOMBRE [--project RUTA]   # no borra la activa: abre otra antes
 oasis entity create ID [--project RUTA]
 oasis entity add-component ID Transform|Mesh|Camera|Light [--project RUTA]
-oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y Z [--project RUTA]
+oasis entity set ID Transform.position|Transform.rotation|Transform.scale|RigidBody.velocity X Y Z [--project RUTA]
 oasis entity set-color ID R G B [--project RUTA]  # RGB en 0..1, exige Mesh
 oasis entity set-light ID R G B INTENSIDAD [--project RUTA]  # RGB 0..1 + intensidad >= 0, exige Light
 oasis entity set-camera ID FOV [--project RUTA]  # 1..179 grados, exige Camera
@@ -88,8 +88,13 @@ oasis stop [--project RUTA] [--save]
   equirect HDRI (.hdr Radiance ≤32MB/≤2048px) con tonemap ACES; la luz de escena
   sigue direccional (sin IBL).
 * `WorldMatrix` aplica yaw+pitch+roll a la malla (picking usa la misma matriz).
+* Física v0.1: `RigidBody` (velocidad, masa, gravedad) + `Collider` (caja unidad
+  × escala). Gravedad 9.8, AABB inelástico con reposo, substeps de 1/60.
+  Estático = Collider sin RigidBody. Sin rotación dinámica, fricción, cóncavas
+  ni joints. `run --ticks N` la ejecuta headless y determinista, y devuelve
+  `entities` post-simulación (`run` nunca guarda en disco).
 * Ventana = Windows + D3D11 (dedicada → hardware → WARP). Headless es portable.
-* Sin ECS, física, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.
+* Sin ECS, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.
 
 ## 6. Reglas para no romper el proyecto
 

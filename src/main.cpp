@@ -29,8 +29,8 @@ void PrintUsageHuman() {
                   "  oasis scene delete NOMBRE [--project RUTA]\n"
                   "  oasis scene set-sky ID|none [--project RUTA]\n"
                  "  oasis entity create ID [--project RUTA]\n"
-                 "  oasis entity add-component ID Transform|Mesh|Camera|Light [--project RUTA]\n"
-                  "  oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y "
+                  "  oasis entity add-component ID Transform|Mesh|Camera|Light|RigidBody|Collider [--project RUTA]\n"
+                  "  oasis entity set ID Transform.position|Transform.rotation|Transform.scale|RigidBody.velocity X Y "
                   "Z [--project RUTA]\n"
                   "  oasis entity set-color ID R G B [--project RUTA]\n"
                   "  oasis entity set-light ID R G B INTENSIDAD [--project RUTA]\n"
@@ -75,6 +75,17 @@ int FailOp(const Error& err) {
 void SuccessOp(const std::string& operation) {
     std::printf("{\"schema_version\":%d,\"ok\":true,\"result\":{\"operation\":\"%s\"}}\n",
                 oasis::kSchemaVersion, oasis::JsonEscape(operation).c_str());
+}
+
+// Array JSON de entidades post-run (para observar física headless por CLI).
+std::string EntitiesJson(const oasis::Scene& scene) {
+    std::string out = "[";
+    for (std::size_t i = 0; i < scene.entities.size(); ++i) {
+        if (i != 0) out += ",";
+        out += oasis::EntityToJson(scene.entities[i]);
+    }
+    out += "]";
+    return out;
 }
 
 bool ParseFloatStrict(const char* text, float& out) {
@@ -323,20 +334,22 @@ int main(int argc, char** argv) {
             return 0;
         }
         if (sub == "set") {
-            if (argc < 8) return FailUsage("Uso: oasis entity set ID Transform.xxx X Y Z [--project RUTA]");
+            if (argc < 8)
+                return FailUsage("Uso: oasis entity set ID Transform.xxx|RigidBody.velocity X Y Z [--project RUTA]");
             std::string prop_full = argv[4];
+            bool is_velocity = (prop_full == "RigidBody.velocity");
             const char* prefix = "Transform.";
-            if (prop_full.rfind(prefix, 0) != 0) {
+            if (!is_velocity && prop_full.rfind(prefix, 0) != 0) {
                 Error e;
-                e.set("INVALID_ARG", "Solo se admite Transform.* en V0.2.");
+                e.set("INVALID_ARG", "Solo se admite Transform.* y RigidBody.velocity.");
                 return FailOp(e);
             }
-            std::string prop = prop_full.substr(std::strlen(prefix));
+            std::string prop = is_velocity ? "velocity" : prop_full.substr(std::strlen(prefix));
             float vals[3];
             for (int i = 0; i < 3; ++i) {
                 if (!ParseFloatStrict(argv[5 + i], vals[i])) {
                     Error e;
-                    e.set("INVALID_ARG", "Los valores de Transform deben ser números finitos.");
+                    e.set("INVALID_ARG", "Los valores deben ser números finitos.");
                     return FailOp(e);
                 }
             }
@@ -349,7 +362,11 @@ int main(int argc, char** argv) {
             if (!oasis::ProjectLoad(root, proj, err) || !oasis::SceneLoadActive(proj, scene, err))
                 return FailOp(err);
             oasis::Vec3 v{vals[0], vals[1], vals[2]};
-            if (!oasis::EntitySetTransform(scene, id, prop, v, err)) return FailOp(err);
+            if (is_velocity) {
+                if (!oasis::EntitySetVelocity(scene, id, v, err)) return FailOp(err);
+            } else if (!oasis::EntitySetTransform(scene, id, prop, v, err)) {
+                return FailOp(err);
+            }
             if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
             SuccessOp("entity.set");
             return 0;
@@ -602,10 +619,11 @@ int main(int argc, char** argv) {
             std::snprintf(elapsed, sizeof(elapsed), "%.6f", rt.elapsed_seconds);
             std::printf(
                 "{\"schema_version\":%d,\"ok\":true,\"result\":{\"project\":\"%s\",\"scene\":\"%s\","
-                "\"ticks\":%llu,\"elapsed_seconds\":%s}}\n",
+                "\"ticks\":%llu,\"elapsed_seconds\":%s,\"entities\":%s}}\n",
                 oasis::kSchemaVersion, oasis::JsonEscape(proj.name).c_str(),
                 oasis::JsonEscape(scene.name).c_str(),
-                static_cast<unsigned long long>(rt.tick_count), elapsed);
+                static_cast<unsigned long long>(rt.tick_count), elapsed,
+                EntitiesJson(scene).c_str());
             return 0;
         }
         oasis::RenderConfig cfg;
@@ -624,11 +642,13 @@ int main(int argc, char** argv) {
                                                                           : "ventana";
         std::printf(
             "{\"schema_version\":%d,\"ok\":true,\"result\":{\"project\":\"%s\",\"scene\":\"%s\","
-            "\"ticks\":%llu,\"elapsed_seconds\":%.6f,\"backend\":\"%s\",\"mode\":\"%s\",\"vsync\":%s}}\n",
+            "\"ticks\":%llu,\"elapsed_seconds\":%.6f,\"backend\":\"%s\",\"mode\":\"%s\",\"vsync\":%s,"
+            "\"entities\":%s}}\n",
             oasis::kSchemaVersion, oasis::JsonEscape(proj.name).c_str(),
             oasis::JsonEscape(scene.name).c_str(),
             static_cast<unsigned long long>(rt.tick_count), rt.elapsed_seconds,
-            oasis::JsonEscape(backend).c_str(), mode_name, cfg.vsync ? "true" : "false");
+            oasis::JsonEscape(backend).c_str(), mode_name, cfg.vsync ? "true" : "false",
+            EntitiesJson(scene).c_str());
         return 0;
     }
 

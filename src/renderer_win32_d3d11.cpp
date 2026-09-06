@@ -304,57 +304,10 @@ bool RayAABB(const float o[3], const float d[3], const float mn[3], const float 
     return true;
 }
 
-// Rotación 3x3 row-major: R = Ry(yaw) * Rx(pitch) * Rz(roll), misma convención
-// row-vector que el shader (mul(float4(p,1),M)). Con pitch=roll=0 es idéntica
-// al yaw-only histórico (filas [c,0,-s] / [0,1,0] / [s,0,c]).
-void RotationMatrix33(float r[9], const Transform& t) {
-    float cy = std::cos(t.rotation.y), sy = std::sin(t.rotation.y);
-    float cp = std::cos(t.rotation.x), sp = std::sin(t.rotation.x);
-    float cr = std::cos(t.rotation.z), sr = std::sin(t.rotation.z);
-    // C = Ry * Rx:
-    // fila0 = (cy, sy*sp, -sy*cp), fila1 = (0, cp, sp), fila2 = (sy, -cy*sp, cy*cp)
-    // R = C * Rz:
-    r[0] = cy * cr - sy * sp * sr;
-    r[1] = cy * sr + sy * sp * cr;
-    r[2] = -sy * cp;
-    r[3] = -cp * sr;
-    r[4] = cp * cr;
-    r[5] = sp;
-    r[6] = sy * cr + cy * sp * sr;
-    r[7] = sy * sr - cy * sp * cr;
-    r[8] = cy * cp;
-}
-
-// Caja mundo: caja local [lmn,lmx] escalada, rotada (yaw+pitch+roll) y trasladada,
-// con la MISMA matriz que WorldMatrix: picking y dibujo siempre coinciden.
+// Caja mundo y rotación: implementaciones compartidas de core (misma matriz en
+// dibujo, picking y física). Ver core.hpp: RotationMatrix33 / BoxWorldAABB.
 // Nota: GetModel se define más abajo; declaración adelantada para el picking.
 ModelCache* GetModel(Context& ctx, const Project& proj, const std::string& asset_id, Error& err);
-void BoxWorldAABB(const float lmn[3], const float lmx[3], const Transform& t, float mn[3],
-                  float mx[3]) {
-    float ex = (t.scale.x != 0.0f ? t.scale.x : 1.0f);
-    float ey = (t.scale.y != 0.0f ? t.scale.y : 1.0f);
-    float ez = (t.scale.z != 0.0f ? t.scale.z : 1.0f);
-    float r[9];
-    RotationMatrix33(r, t);
-    mn[0] = mn[1] = mn[2] = 1e30f;
-    mx[0] = mx[1] = mx[2] = -1e30f;
-    for (int ix = 0; ix < 2; ++ix)
-        for (int iy = 0; iy < 2; ++iy)
-            for (int iz = 0; iz < 2; ++iz) {
-                float lx = (ix == 0 ? lmn[0] : lmx[0]) * ex;
-                float ly = (iy == 0 ? lmn[1] : lmx[1]) * ey;
-                float lz = (iz == 0 ? lmn[2] : lmx[2]) * ez;
-                float wx = r[0] * lx + r[3] * ly + r[6] * lz + t.position.x;
-                float wy = r[1] * lx + r[4] * ly + r[7] * lz + t.position.y;
-                float wz = r[2] * lx + r[5] * ly + r[8] * lz + t.position.z;
-                if (wx < mn[0]) mn[0] = wx;
-                if (wy < mn[1]) mn[1] = wy;
-                if (wz < mn[2]) mn[2] = wz;
-                if (wx > mx[0]) mx[0] = wx;
-                if (wy > mx[1]) mx[1] = wy;
-                if (wz > mx[2]) mx[2] = wz;
-            }
-}
 
 // Caja mundo aproximada: cubo unidad centrado en position, escalado y rotado.
 void EntityWorldAABB(const Entity& e, float mn[3], float mx[3]) {
@@ -2045,6 +1998,7 @@ void UpdateCamera(Scene& scene, Context& ctx, double dt) {
     }
     if (have_drag && sel != nullptr) {
         sel->transform.position = {npx, npy, npz};
+        if (sel->has_rigidbody) sel->rigidbody.velocity = {0.0f, 0.0f, 0.0f};
         // La cámara y todas las matrices usan radianes. atan2 ya devuelve
         // radianes; convertirlo a grados aquí hacía que, tras arrastrar una
         // selección, la siguiente matriz de vista apuntase a otra dirección.

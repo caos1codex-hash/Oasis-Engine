@@ -45,6 +45,16 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
 * `scene set-sky ID|none` referencia el sky (campo `sky` opcional en escena,
   visible en `state`). La ventana lo dibuja como cubo equirect con tonemap ACES;
   la luz sigue direccional, sin IBL. Límite GPU: ≤2048px.
+
+## Física v0.1
+
+* Componentes `RigidBody` (velocity, mass 0..1000000, use_gravity) y `Collider`
+  (marcador: caja unidad × escala/rotación, misma matriz que picking).
+* `Runtime::update` integra con substeps de 1/60: gravedad 9.8, AABB secuencial
+  con restitución 0 y reposo bajo 0.01 m/s. Estático = Collider sin RigidBody.
+* Determinista en headless (`run --ticks N`). La ventana comparte el mismo
+  `update`; arrastrar anula la velocidad del agarrado.
+* Fuera: rotación dinámica, fricción, mallas cóncavas, joints, momento angular.
 * `WorldMatrix` aplica yaw+pitch+roll (`R = Ry*Rx*Rz`, misma matriz en picking).
 * VSync ON por defecto (`Present(1,0)`, ritmo del monitor). `--vsync 0` lo desactiva
   (`Present(0,0)` con tearing, solo para diagnóstico). Sin limitador FPS adicional.
