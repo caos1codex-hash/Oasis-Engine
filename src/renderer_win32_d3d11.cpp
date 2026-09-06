@@ -114,6 +114,22 @@ struct Context {
     ID3D11Buffer* corner_vb = nullptr;     // widget orientación esq. sup. der. (dinámico, 26)
     ID3D11DepthStencilState* no_depth = nullptr;  // para dibujar el overlay 2D
     ID3D11SamplerState* sampler = nullptr;  // lineal clamp para baseColorTexture
+    // Calidad automática: render a menor resolución + blit (ver --min-fps).
+    ID3D11Texture2D* low_tex = nullptr;
+    ID3D11RenderTargetView* low_rtv = nullptr;
+    ID3D11ShaderResourceView* low_srv = nullptr;
+    ID3D11Texture2D* low_depth = nullptr;
+    ID3D11DepthStencilView* low_dsv = nullptr;
+    int low_w = 0;
+    int low_h = 0;
+    ID3D11VertexShader* blit_vs = nullptr;
+    ID3D11PixelShader* blit_ps = nullptr;
+    ID3D11InputLayout* blit_layout = nullptr;
+    ID3D11Buffer* blit_vb = nullptr;
+    float quality_scale = 1.0f;  // 1.0 = nativa; el evaluador la ajusta
+    int quality_idx = 0;
+    int quality_up_streak = 0;
+    bool low_warned = false;  // aviso único si falla el target reducido
     int buf_w = 0;  // tamaño real del backbuffer (resize en cada frame si cambia)
     int buf_h = 0;
     std::vector<ModelCache> models;
@@ -127,6 +143,15 @@ void ReleaseContext(Context& c) {
         if (m.vertices != nullptr) m.vertices->Release();
     }
     c.models.clear();
+    if (c.low_dsv != nullptr) c.low_dsv->Release();
+    if (c.low_depth != nullptr) c.low_depth->Release();
+    if (c.low_srv != nullptr) c.low_srv->Release();
+    if (c.low_rtv != nullptr) c.low_rtv->Release();
+    if (c.low_tex != nullptr) c.low_tex->Release();
+    if (c.blit_vb != nullptr) c.blit_vb->Release();
+    if (c.blit_layout != nullptr) c.blit_layout->Release();
+    if (c.blit_ps != nullptr) c.blit_ps->Release();
+    if (c.blit_vs != nullptr) c.blit_vs->Release();
     if (c.sampler != nullptr) c.sampler->Release();
     if (c.matrices != nullptr) c.matrices->Release();
     if (c.cross_vb != nullptr) c.cross_vb->Release();
@@ -150,6 +175,17 @@ void ReleaseContext(Context& c) {
     c.corner_vb = nullptr;
     c.no_depth = nullptr;
     c.sampler = nullptr;
+    c.low_tex = nullptr;
+    c.low_rtv = nullptr;
+    c.low_srv = nullptr;
+    c.low_depth = nullptr;
+    c.low_dsv = nullptr;
+    c.low_w = 0;
+    c.low_h = 0;
+    c.blit_vs = nullptr;
+    c.blit_ps = nullptr;
+    c.blit_layout = nullptr;
+    c.blit_vb = nullptr;
     c.cube_ib = nullptr;
     c.cube_vb = nullptr;
     c.layout = nullptr;
@@ -1527,6 +1563,25 @@ const char* kPsSrc =
     "  return float4(ambient + diffuse + specular, 1);"
     "}";
 
+// Blit de reescalado (calidad automática): triángulo pantalla completa.
+const char* kBlitVsSrc =
+    "struct I { float2 p:POSITION; float2 uv:TEXCOORD0; };"
+    "struct O { float4 p:SV_POSITION; float2 uv:TEXCOORD0; };"
+    "O BVSMain(I i) { O o; o.p = float4(i.p, 0, 1); o.uv = i.uv; return o; }";
+const char* kBlitPsSrc =
+    "Texture2D src_tex : register(t0);"
+    "SamplerState src_smp : register(s0);"
+    "struct I { float4 p:SV_POSITION; float2 uv:TEXCOORD0; };"
+    "float4 BPSMain(I i) : SV_TARGET { return src_tex.Sample(src_smp, i.uv); }";
+
+struct BlitVertex {
+    float p[2];
+    float uv[2];
+};
+
+// Niveles de resolución (1.0 = nativa). Histéresis en el evaluador del bucle.
+static const float kQualityScales[5] = {1.0f, 0.85f, 0.7f, 0.55f, 0.4f};
+
 bool Initialize(Context& ctx, HWND hwnd, Error& err) {
     // Cubo con normales por cara (24 vértices: 4 por cara). Mismo winding que el
     // cubo de 8 vértices anterior. Vértices blancos: el color visible lo decide
@@ -1703,6 +1758,42 @@ bool Initialize(Context& ctx, HWND hwnd, Error& err) {
         smp.MinLOD = 0.0f;
         smp.MaxLOD = 0.0f;  // sin mipmaps: una sola capa
         hr = ctx.device->CreateSamplerState(&smp, &ctx.sampler);
+    }
+    if (SUCCEEDED(hr)) {
+        // Pipeline de blit: shaders + layout + triángulo pantalla completa.
+        ID3DBlob* bvs = nullptr;
+        ID3DBlob* bps = nullptr;
+        bool bok = CompileShader(kBlitVsSrc, "BVSMain", "vs_4_0", &bvs, err) &&
+                   CompileShader(kBlitPsSrc, "BPSMain", "ps_4_0", &bps, err);
+        if (bok) {
+            hr = ctx.device->CreateVertexShader(bvs->GetBufferPointer(), bvs->GetBufferSize(),
+                                                nullptr, &ctx.blit_vs);
+            if (SUCCEEDED(hr))
+                hr = ctx.device->CreatePixelShader(bps->GetBufferPointer(), bps->GetBufferSize(),
+                                                   nullptr, &ctx.blit_ps);
+            D3D11_INPUT_ELEMENT_DESC belems[2] = {
+                {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0},
+                {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 8, D3D11_INPUT_PER_VERTEX_DATA, 0}};
+            if (SUCCEEDED(hr))
+                hr = ctx.device->CreateInputLayout(belems, 2, bvs->GetBufferPointer(),
+                                                   bvs->GetBufferSize(), &ctx.blit_layout);
+        } else {
+            hr = E_FAIL;  // err ya describe el shader que falló
+        }
+        if (bvs != nullptr) bvs->Release();
+        if (bps != nullptr) bps->Release();
+    }
+    static const BlitVertex kBlitTri[3] = {{{-1.0f, -1.0f}, {0.0f, 1.0f}},
+                                           {{3.0f, -1.0f}, {2.0f, 1.0f}},
+                                           {{-1.0f, 3.0f}, {0.0f, -1.0f}}};
+    if (SUCCEEDED(hr)) {
+        D3D11_BUFFER_DESC bd2{};
+        bd2.ByteWidth = sizeof(kBlitTri);
+        bd2.Usage = D3D11_USAGE_DEFAULT;
+        bd2.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+        D3D11_SUBRESOURCE_DATA sd2{};
+        sd2.pSysMem = kBlitTri;
+        hr = ctx.device->CreateBuffer(&bd2, &sd2, &ctx.blit_vb);
     }
     if (FAILED(hr)) {
         err.set("GPU", "No se pudo crear los buffers.");
@@ -2287,11 +2378,105 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
     DrawLinesOutlined(ctx, ctx.corner_vb, static_cast<UINT>(n), w, h, nullptr);
 }
 
+// Objetivo reducido para calidad automática. Se recrea al cambiar tamaño o escala.
+// El SRV se desata tras cada blit: seguro recrear aquí.
+bool EnsureLowResSize(Context& ctx, int full_w, int full_h, float scale, Error& err) {
+    int lw = static_cast<int>(static_cast<float>(full_w) * scale);
+    int lh = static_cast<int>(static_cast<float>(full_h) * scale);
+    if (lw < 8) lw = 8;
+    if (lh < 8) lh = 8;
+    if (lw == ctx.low_w && lh == ctx.low_h && ctx.low_rtv != nullptr) return true;
+    if (ctx.low_dsv != nullptr) {
+        ctx.low_dsv->Release();
+        ctx.low_dsv = nullptr;
+    }
+    if (ctx.low_depth != nullptr) {
+        ctx.low_depth->Release();
+        ctx.low_depth = nullptr;
+    }
+    if (ctx.low_srv != nullptr) {
+        ctx.low_srv->Release();
+        ctx.low_srv = nullptr;
+    }
+    if (ctx.low_rtv != nullptr) {
+        ctx.low_rtv->Release();
+        ctx.low_rtv = nullptr;
+    }
+    if (ctx.low_tex != nullptr) {
+        ctx.low_tex->Release();
+        ctx.low_tex = nullptr;
+    }
+    ctx.low_w = 0;
+    ctx.low_h = 0;
+    D3D11_TEXTURE2D_DESC td{};
+    td.Width = static_cast<UINT>(lw);
+    td.Height = static_cast<UINT>(lh);
+    td.MipLevels = 1;
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_DEFAULT;
+    td.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+    HRESULT hr = ctx.device->CreateTexture2D(&td, nullptr, &ctx.low_tex);
+    if (SUCCEEDED(hr)) hr = ctx.device->CreateRenderTargetView(ctx.low_tex, nullptr, &ctx.low_rtv);
+    if (SUCCEEDED(hr))
+        hr = ctx.device->CreateShaderResourceView(ctx.low_tex, nullptr, &ctx.low_srv);
+    D3D11_TEXTURE2D_DESC dd{};
+    dd.Width = static_cast<UINT>(lw);
+    dd.Height = static_cast<UINT>(lh);
+    dd.MipLevels = 1;
+    dd.ArraySize = 1;
+    dd.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    dd.SampleDesc.Count = 1;
+    dd.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+    if (SUCCEEDED(hr)) hr = ctx.device->CreateTexture2D(&dd, nullptr, &ctx.low_depth);
+    if (SUCCEEDED(hr))
+        hr = ctx.device->CreateDepthStencilView(ctx.low_depth, nullptr, &ctx.low_dsv);
+    if (FAILED(hr)) {
+        err.set("GPU", "No se pudo crear el objetivo reducido.");
+        return false;
+    }
+    ctx.low_w = lw;
+    ctx.low_h = lh;
+    return true;
+}
+
 HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int width, int height,
                   bool vsync) {
+    D3D11_VIEWPORT full{};
+    full.Width = static_cast<FLOAT>(width);
+    full.Height = static_cast<FLOAT>(height);
+    full.MaxDepth = 1.0f;
+    // Sin SRV enlazado al empezar (el blit del frame anterior lo desata, pero
+    // EnsureLowResSize puede recrear low_tex y no debe estar enlazado).
+    ID3D11ShaderResourceView* nullsrv0 = nullptr;
+    ctx.context->PSSetShaderResources(0, 1, &nullsrv0);
+    // Destino de escena: nativo o reducido según calidad automática. El aspect
+    // de proyección siempre es el de pantalla completa (el blit estira).
+    float scale = (ctx.quality_scale < 1.0f && ctx.quality_scale >= 0.4f) ? ctx.quality_scale
+                                                                         : 1.0f;
+    ID3D11RenderTargetView* scene_rtv = ctx.target;
+    ID3D11DepthStencilView* scene_dsv = ctx.depth;
+    int rw = width, rh = height;
+    if (scale < 1.0f) {
+        Error lerr;
+        if (EnsureLowResSize(ctx, width, height, scale, lerr)) {
+            scene_rtv = ctx.low_rtv;
+            scene_dsv = ctx.low_dsv;
+            rw = ctx.low_w;
+            rh = ctx.low_h;
+        } else if (!ctx.low_warned) {
+            ctx.low_warned = true;
+            std::fprintf(stderr, "Aviso: calidad automática sin efecto (%s).\n",
+                         lerr.message.c_str());
+            scale = 1.0f;
+        } else {
+            scale = 1.0f;
+        }
+    }
     D3D11_VIEWPORT vp{};
-    vp.Width = static_cast<FLOAT>(width);
-    vp.Height = static_cast<FLOAT>(height);
+    vp.Width = static_cast<FLOAT>(rw);
+    vp.Height = static_cast<FLOAT>(rh);
     vp.MaxDepth = 1.0f;
     const float clear[4] = {.02f, .05f, .09f, 1.0f};
     Transform fallback{};
@@ -2318,10 +2503,10 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
     }
     if (!(fov >= 1.0f && fov <= 179.0f)) fov = 60.0f;
     if (std::isfinite(light_i) == 0 || light_i < 0.0f) light_i = 1.0f;
-    ctx.context->OMSetRenderTargets(1, &ctx.target, ctx.depth);
+    ctx.context->OMSetRenderTargets(1, &scene_rtv, scene_dsv);
     ctx.context->RSSetViewports(1, &vp);
-    ctx.context->ClearRenderTargetView(ctx.target, clear);
-    ctx.context->ClearDepthStencilView(ctx.depth, D3D11_CLEAR_DEPTH, 1.0f, 0);
+    ctx.context->ClearRenderTargetView(scene_rtv, clear);
+    ctx.context->ClearDepthStencilView(scene_dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
     ctx.context->IASetInputLayout(ctx.layout);
     UINT stride = sizeof(Vertex), off = 0;
     ctx.context->IASetVertexBuffers(0, 1, &ctx.cube_vb, &stride, &off);
@@ -2420,6 +2605,31 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
             ctx.context->IASetVertexBuffers(0, 1, &ctx.cube_vb, &stride, &off);
             ctx.context->IASetIndexBuffer(ctx.cube_ib, DXGI_FORMAT_R16_UINT, 0);
         }
+    }
+    if (scale < 1.0f) {
+        // Blit del objetivo reducido al backbuffer nativo; los overlays van
+        // después a resolución completa (nítidos).
+        ctx.context->OMSetRenderTargets(1, &ctx.target, nullptr);
+        ctx.context->RSSetViewports(1, &full);
+        ctx.context->IASetInputLayout(ctx.blit_layout);
+        UINT bs = sizeof(BlitVertex), bo = 0;
+        ctx.context->IASetVertexBuffers(0, 1, &ctx.blit_vb, &bs, &bo);
+        ctx.context->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+        ctx.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        ctx.context->VSSetShader(ctx.blit_vs, nullptr, 0);
+        ctx.context->PSSetShader(ctx.blit_ps, nullptr, 0);
+        ctx.context->PSSetShaderResources(0, 1, &ctx.low_srv);
+        ctx.context->PSSetSamplers(0, 1, &ctx.sampler);
+        ctx.context->Draw(3, 0);
+        ID3D11ShaderResourceView* nullsrv = nullptr;
+        ctx.context->PSSetShaderResources(0, 1, &nullsrv);
+        // Restaurar pipeline 3D para los overlays.
+        ctx.context->IASetInputLayout(ctx.layout);
+        ctx.context->VSSetShader(ctx.vs, nullptr, 0);
+        ctx.context->PSSetShader(ctx.ps, nullptr, 0);
+        ctx.context->VSSetConstantBuffers(0, 1, &ctx.matrices);
+        ctx.context->PSSetConstantBuffers(0, 1, &ctx.matrices);
+        ctx.context->PSSetSamplers(0, 1, &ctx.sampler);
     }
     DrawCrosshair(ctx, proj, scene, *cam_t, aspect, width, height);
     float view_proj[16];
@@ -2660,6 +2870,28 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
         ema_ms += (dt * 1000.0 - ema_ms) * 0.05;
         acc += dt;
         if (acc >= 1.0) {
+            // Calidad automática con histéresis: baja al primer segundo bajo el
+            // mínimo; sube tras 3 segundos seguidos con >20 FPS de margen.
+            if (cfg.min_fps > 0) {
+                if (frames < static_cast<unsigned>(cfg.min_fps)) {
+                    if (ctx.quality_idx < 4) {
+                        ++ctx.quality_idx;
+                        ctx.quality_scale = kQualityScales[ctx.quality_idx];
+                    }
+                    ctx.quality_up_streak = 0;
+                } else if (frames > static_cast<unsigned>(cfg.min_fps) + 20U) {
+                    ++ctx.quality_up_streak;
+                    if (ctx.quality_up_streak >= 3) {
+                        if (ctx.quality_idx > 0) {
+                            --ctx.quality_idx;
+                            ctx.quality_scale = kQualityScales[ctx.quality_idx];
+                        }
+                        ctx.quality_up_streak = 0;
+                    }
+                } else {
+                    ctx.quality_up_streak = 0;
+                }
+            }
             const Transform* cam = nullptr;
             for (const auto& e : rt.scene->entities) {
                 if (e.has_camera) {
@@ -2670,7 +2902,7 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
             char title[384];
             std::snprintf(title, sizeof(title),
                           "Oasis | %u FPS %.1fms | foco:%s eventos:%llu raton:%llu mouse:%s | "
-                          "cam:[%.1f,%.1f,%.1f] rot:[%.2f,%.2f] sel:%s eje:%c",
+                          "cam:[%.1f,%.1f,%.1f] rot:[%.2f,%.2f] sel:%s eje:%c res:%d%%",
                           frames, ema_ms, ctx.has_focus ? "si" : "no",
                           static_cast<unsigned long long>(ctx.event_count),
                           static_cast<unsigned long long>(ctx.mouse_event_count),
@@ -2681,7 +2913,8 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
                           cam == nullptr ? 0.0f : cam->rotation.y,
                           cam == nullptr ? 0.0f : cam->rotation.x,
                           ctx.selected.empty() ? "-" : ctx.selected.c_str(),
-                          ctx.locked_axis != 0 ? ctx.locked_axis : '-');
+                          ctx.locked_axis != 0 ? ctx.locked_axis : '-',
+                          static_cast<int>(ctx.quality_scale * 100.0f + 0.5f));
             ::SetWindowTextA(hwnd, title);
             acc = 0.0;
             frames = 0;

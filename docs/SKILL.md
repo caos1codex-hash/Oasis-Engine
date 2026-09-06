@@ -50,12 +50,13 @@ oasis asset import ID ARCHIVO.glb [--project RUTA]
 oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]
 oasis asset list [--project RUTA]
 oasis state [--project RUTA]
-oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1]
+oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N]
 oasis stop [--project RUTA] [--save]
 ```
 
 * IDs y nombres de escena/proyecto: `[A-Za-z0-9_-]{1,63}`. `entity set` rechaza
   `nan/inf`, espacios y no-finitos. `--ticks` solo `0..1000000`.
+  `--min-fps` solo `0..1000` (`0` desactiva la calidad automática).
 * Cada comando de edición **guarda en disco de inmediato** (atómico `tmp+rename`).
   No hay "guardar" separado, salvo la ventana (`ESC` → Sí, o `stop --save`).
 * `run` sin `--window` es determinista: `N` ticks de `1/60 s`. Para automatización

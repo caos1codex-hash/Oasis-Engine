@@ -41,7 +41,7 @@ void PrintUsageHuman() {
                  "  oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]\n"
                  "  oasis asset list [--project RUTA]\n"
                   "  oasis state [--project RUTA]\n"
-                  "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1]\n"
+                  "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N]\n"
                   "  oasis stop [--project RUTA] [--save]\n",
                  oasis::kVersion);
 }
@@ -484,6 +484,7 @@ int main(int argc, char** argv) {
         bool ticks_given = false;
         std::uint64_t ticks = 1;
         bool vsync = true;
+        int min_fps = 144;  // 0 = calidad automática desactivada
         for (int i = 2; i < argc; ++i) {
             std::string a = argv[i];
             if (a == "--window") {
@@ -520,6 +521,16 @@ int main(int argc, char** argv) {
                 if (v != "0" && v != "1") return FailUsage("Uso: --vsync 0|1.");
                 vsync = (v == "1");
                 ++i;
+            } else if (a == "--min-fps") {
+                if (i + 1 >= argc) return FailUsage("Falta el valor después de --min-fps.");
+                std::uint64_t v = 0;
+                if (!ParseUintStrict(argv[i + 1], v, 1000)) {
+                    Error e;
+                    e.set("INVALID_ARG", "--min-fps requiere un entero 0..1000 (0 desactiva).");
+                    return FailOp(e);
+                }
+                min_fps = static_cast<int>(v);
+                ++i;
             } else {
                 return FailUsage("Flag desconocido en run: " + a);
             }
@@ -552,6 +563,7 @@ int main(int argc, char** argv) {
         oasis::RenderConfig cfg;
         cfg.max_ticks = ticks_given ? ticks : 0;
         cfg.vsync = vsync;
+        cfg.min_fps = min_fps;
         if (fullscreen_flag || (modo_given && modo == "completa"))
             cfg.mode = oasis::WindowMode::Fullscreen;
         else if (modo_given && modo == "barra")
