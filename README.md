@@ -4,6 +4,7 @@ Motor pequeño AI-first: núcleo escena JSON + CLI con contrato JSON estable +
 runtime headless determinista + renderer D3D11 opcional.
 
 > Fuente de verdad: este README + `docs/REBUILD_0_2.md`.
+> Agentes IA: leer primero `docs/SKILL.md`.
 > `documentacion.md` es legado v0.1 y queda como `docs/legacy_v1.md` de referencia histórica.
 
 ## Stack
