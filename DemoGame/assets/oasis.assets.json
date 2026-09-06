@@ -1,6 +1,7 @@
 {
   "format": 1,
   "assets": [
-    {"id": "Firefox", "source": "assets/source/Firefox.glb", "cooked": "assets/cooked/Firefox.oasisasset", "hash": "2a366ec49b49cde8", "bytes": 70152}
+    {"id": "Firefox", "source": "assets/source/Firefox.glb", "cooked": "assets/cooked/Firefox.oasisasset", "hash": "2a366ec49b49cde8", "bytes": 70152, "kind": "model"},
+    {"id": "DaySky", "source": "assets/source/DaySky.hdr", "cooked": "assets/cooked/DaySky.oasisasset", "hash": "1745347e95c38150", "bytes": 18952, "kind": "sky"}
   ]
 }

@@ -72,6 +72,7 @@ struct Entity {
 
 struct Scene {
     std::string name;
+    std::string sky_asset;  // "" = sin cielo; id de asset kind "sky"
     std::vector<Entity> entities;
 };
 

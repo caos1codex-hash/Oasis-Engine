@@ -87,4 +87,6 @@ if(BUILD_TESTING)
   set_tests_properties(oasis_cli_stop_idle PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"stopped\":false")
   add_test(NAME oasis_cli_stop_save_idle COMMAND oasis stop --project ${CMAKE_CURRENT_BINARY_DIR}/NoWindowHere --save)
   set_tests_properties(oasis_cli_stop_save_idle PROPERTIES PASS_REGULAR_EXPRESSION "\"schema_version\":1.*\"ok\":true.*\"stopped\":false.*\"save\":true")
+  add_test(NAME oasis_cli_setsky_missing_asset
+    COMMAND ${CMAKE_COMMAND} -DOASIS=$<TARGET_FILE:oasis> -DDEMO=${CMAKE_CURRENT_SOURCE_DIR}/DemoGame -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_setsky_missing.cmake)
 endif()

@@ -92,6 +92,8 @@ Esquina superior derecha: widget de orientación con los 3 ejes mundo (mitad
 positiva brillante, negativa atenuada) que rota con la cámara.
 El título muestra `raton:N` y `rot:[yaw,pitch]` para comprobar que llegan eventos.
 Perder el foco desactiva el mouse: pulsa `Ctrl` de nuevo.
+Cielo HDRI: `asset import-sky ID .hdr` + `scene set-sky ID` (fondo equirect con
+tonemap ACES; la luz de escena sigue direccional).
 Control total IA: `oasis stop --project RUTA` cierra la ventana de ese proyecto
 (sale sin guardar; idempotente: `stopped:false` si no hay ventana). Con `--save`
 guarda la escena antes de salir (equivale a `ESC` → Sí; verificar con `state`

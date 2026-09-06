@@ -47,7 +47,9 @@ oasis entity set-model ID ASSET [--project RUTA]  # ASSET debe existir: si no, N
 oasis entity get ID [--project RUTA]
 oasis entity delete ID [--project RUTA]
 oasis asset import ID ARCHIVO.glb [--project RUTA]
+oasis asset import-sky ID ARCHIVO.hdr [--project RUTA]  # Radiance RGBE ≤32MB
 oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]
+oasis scene set-sky ID|none [--project RUTA]  # ID debe ser asset kind "sky"
 oasis asset list [--project RUTA]
 oasis state [--project RUTA]
 oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N]
@@ -82,6 +84,9 @@ oasis stop [--project RUTA] [--save]
   `NORMAL`/`TEXCOORD_0` opcionales con fallback, `baseColorFactor` +
   `baseColorTexture` PNG/JPG con mipmaps). Proyección zn=0.1/zf=2000.
   Sin metallic/roughness, PBR completa ni LOD geométrico.
+* Cielo: `scene.sky_asset` (null = sin cielo, `scene set-sky ID|none`). Solo fondo
+  equirect HDRI (.hdr Radiance ≤32MB/≤2048px) con tonemap ACES; la luz de escena
+  sigue direccional (sin IBL).
 * `WorldMatrix` aplica yaw+pitch+roll a la malla (picking usa la misma matriz).
 * Ventana = Windows + D3D11 (dedicada → hardware → WARP). Headless es portable.
 * Sin ECS, física, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.

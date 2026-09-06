@@ -26,7 +26,8 @@ void PrintUsageHuman() {
                  "  oasis scene create NOMBRE [--project RUTA]\n"
                  "  oasis scene open NOMBRE [--project RUTA]\n"
                  "  oasis scene list [--project RUTA]\n"
-                 "  oasis scene delete NOMBRE [--project RUTA]\n"
+                  "  oasis scene delete NOMBRE [--project RUTA]\n"
+                  "  oasis scene set-sky ID|none [--project RUTA]\n"
                  "  oasis entity create ID [--project RUTA]\n"
                  "  oasis entity add-component ID Transform|Mesh|Camera|Light [--project RUTA]\n"
                   "  oasis entity set ID Transform.position|Transform.rotation|Transform.scale X Y "
@@ -37,7 +38,8 @@ void PrintUsageHuman() {
                  "  oasis entity set-model ID ASSET [--project RUTA]\n"
                  "  oasis entity get ID [--project RUTA]\n"
                  "  oasis entity delete ID [--project RUTA]\n"
-                 "  oasis asset import ID ARCHIVO.glb [--project RUTA]\n"
+                  "  oasis asset import ID ARCHIVO.glb [--project RUTA]\n"
+                  "  oasis asset import-sky ID ARCHIVO.hdr [--project RUTA]\n"
                  "  oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]\n"
                  "  oasis asset list [--project RUTA]\n"
                   "  oasis state [--project RUTA]\n"
@@ -197,7 +199,7 @@ int main(int argc, char** argv) {
     }
 
     if (cmd == "scene") {
-        if (argc < 3) return FailUsage("Uso: oasis scene create|open|list|delete ...");
+        if (argc < 3) return FailUsage("Uso: oasis scene create|open|list|delete|set-sky ...");
         std::string sub = argv[2];
         if (sub == "list") {
             int idx = 3;
@@ -211,7 +213,7 @@ int main(int argc, char** argv) {
             std::printf("%s\n", oasis::SceneListToJson(proj, list).c_str());
             return 0;
         }
-        if (argc < 4) return FailUsage("Uso: oasis scene create|open|delete NOMBRE [--project RUTA]");
+        if (argc < 4) return FailUsage("Uso: oasis scene create|open|delete|set-sky NOMBRE [--project RUTA]");
         std::string name = argv[3];
         int idx = 4;
         std::string root;
@@ -234,7 +236,40 @@ int main(int argc, char** argv) {
             SuccessOp("scene.delete");
             return 0;
         }
-        return FailUsage("Uso: oasis scene create|open|list|delete ...");
+        if (sub == "set-sky") {
+            // Uso: oasis scene set-sky ID|none [--project RUTA]. Valida que el
+            // asset exista en el manifiesto y sea kind "sky" (como set-model).
+            oasis::Scene scene;
+            if (!oasis::SceneLoadActive(proj, scene, err)) return FailOp(err);
+            if (name == "none") {
+                scene.sky_asset.clear();
+            } else {
+                if (!oasis::ValidId(name)) {
+                    Error e;
+                    e.set("INVALID_ARG", "Identificador de sky inválido.");
+                    return FailOp(e);
+                }
+                oasis::AssetList assets;
+                if (!oasis::AssetListLoad(proj, assets, err)) return FailOp(err);
+                bool found_sky = false;
+                for (const auto& a : assets.items) {
+                    if (a.id == name && a.kind == "sky") {
+                        found_sky = true;
+                        break;
+                    }
+                }
+                if (!found_sky) {
+                    Error ne;
+                    ne.set("NOT_FOUND", "El sky '" + name + "' no existe en el manifiesto.");
+                    return FailOp(ne);
+                }
+                scene.sky_asset = name;
+            }
+            if (!oasis::SceneSaveActive(proj, scene, err)) return FailOp(err);
+            SuccessOp("scene.set_sky");
+            return 0;
+        }
+        return FailUsage("Uso: oasis scene create|open|list|delete|set-sky ...");
     }
 
     if (cmd == "entity") {
@@ -438,7 +473,7 @@ int main(int argc, char** argv) {
     }
 
     if (cmd == "asset") {
-        if (argc < 3) return FailUsage("Uso: oasis asset list|import|convert-obj ...");
+        if (argc < 3) return FailUsage("Uso: oasis asset list|import|convert-obj|import-sky ...");
         std::string sub = argv[2];
         if (sub == "list") {
             int idx = 3;
@@ -467,7 +502,20 @@ int main(int argc, char** argv) {
             SuccessOp(sub == "import" ? "asset.import" : "asset.convert_obj");
             return 0;
         }
-        return FailUsage("Uso: oasis asset list|import|convert-obj ...");
+        if (sub == "import-sky" && argc >= 5) {
+            std::string aid = argv[3];
+            std::string src = argv[4];
+            int idx = 5;
+            std::string root;
+            Error err;
+            if (!ParseProjectFlag(idx, argc, argv, root, err)) return FailOp(err);
+            oasis::Project proj;
+            if (!oasis::ProjectLoad(root, proj, err)) return FailOp(err);
+            if (!oasis::AssetImportSky(proj, aid, src, err)) return FailOp(err);
+            SuccessOp("asset.import_sky");
+            return 0;
+        }
+        return FailUsage("Uso: oasis asset list|import|convert-obj|import-sky ...");
     }
 
     if (cmd == "run") {

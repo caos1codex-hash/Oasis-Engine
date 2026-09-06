@@ -37,6 +37,14 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
   material `baseColorFactor` + `baseColorTexture` (PNG/JPG embebido, con mipmaps
   generados: menos resolución a distancia). Sin metallic/roughness, UV2, ni PBR
   completa. LOD geométrico (menos triángulos a distancia): pendiente.
+
+## Cielo HDRI
+
+* `asset import-sky ID .hdr` valida Radiance (`#?RADIANCE`, ≤32MB) y registra
+  kind `"sky"` en el manifiesto (manifiestos viejos sin kind = `"model"`).
+* `scene set-sky ID|none` referencia el sky (campo `sky` opcional en escena,
+  visible en `state`). La ventana lo dibuja como cubo equirect con tonemap ACES;
+  la luz sigue direccional, sin IBL. Límite GPU: ≤2048px.
 * `WorldMatrix` aplica yaw+pitch+roll (`R = Ry*Rx*Rz`, misma matriz en picking).
 * VSync ON por defecto (`Present(1,0)`, ritmo del monitor). `--vsync 0` lo desactiva
   (`Present(0,0)` con tearing, solo para diagnóstico). Sin limitador FPS adicional.

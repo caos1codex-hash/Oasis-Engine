@@ -60,7 +60,8 @@ bool WriteRegistry(const Project& proj, const AssetList& assets, Error& err) {
         const Asset& a = assets.items[i];
         oss << "    {\"id\": \"" << JsonEscape(a.id) << "\", \"source\": \"" << JsonEscape(a.source)
             << "\", \"cooked\": \"" << JsonEscape(a.cooked) << "\", \"hash\": \"" << JsonEscape(a.hash)
-            << "\", \"bytes\": " << a.bytes << "}" << (i + 1 == assets.items.size() ? "" : ",") << "\n";
+            << "\", \"bytes\": " << a.bytes << ", \"kind\": \"" << JsonEscape(a.kind) << "\"}"
+            << (i + 1 == assets.items.size() ? "" : ",") << "\n";
     }
     oss << "  ]\n}\n";
     std::string text = oss.str();
@@ -185,12 +186,12 @@ bool CopyAndValidateGlb(const std::filesystem::path& src, const std::filesystem:
     return true;
 }
 
-bool WriteCooked(const Project& proj, const Asset& a, Error& err) {
+bool WriteCooked(const Project& proj, const Asset& a, const char* type, Error& err) {
     std::filesystem::path rel(a.cooked, std::filesystem::path::format::generic_format);
     std::filesystem::path dst = proj.root / rel;
     std::ostringstream oss;
-    oss << "{\"format\":1,\"type\":\"model\",\"source\":\"" << JsonEscape(a.source) << "\",\"hash\":\""
-        << JsonEscape(a.hash) << "\",\"bytes\":" << a.bytes << "}\n";
+    oss << "{\"format\":1,\"type\":\"" << type << "\",\"source\":\"" << JsonEscape(a.source)
+        << "\",\"hash\":\"" << JsonEscape(a.hash) << "\",\"bytes\":" << a.bytes << "}\n";
     std::string text = oss.str();
     std::error_code ec;
     std::filesystem::create_directories(dst.parent_path(), ec);
@@ -464,12 +465,23 @@ bool AssetListLoad(const Project& proj, AssetList& out, Error& err) {
         cJSON* cok = cJSON_GetObjectItemCaseSensitive(it, "cooked");
         cJSON* h = cJSON_GetObjectItemCaseSensitive(it, "hash");
         cJSON* b = cJSON_GetObjectItemCaseSensitive(it, "bytes");
+        cJSON* k = cJSON_GetObjectItemCaseSensitive(it, "kind");
         if (cJSON_IsObject(it) == 0 || cJSON_IsString(id) == 0 || !ValidId(id->valuestring) ||
             cJSON_IsString(src) == 0 || cJSON_IsString(cok) == 0 || cJSON_IsString(h) == 0 ||
             std::strlen(h->valuestring) != 16U || HasTraversal(src->valuestring) ||
             HasTraversal(cok->valuestring)) {
             err.set("BAD_FORMAT", "El manifiesto de assets contiene una entrada inválida.");
             return false;
+        }
+        // kind ausente = manifiesto viejo -> "model".
+        std::string kind = "model";
+        if (k != nullptr) {
+            if (cJSON_IsString(k) == 0 || (std::strcmp(k->valuestring, "model") != 0 &&
+                                           std::strcmp(k->valuestring, "sky") != 0)) {
+                err.set("BAD_FORMAT", "El manifiesto de assets contiene un kind inválido.");
+                return false;
+            }
+            kind = k->valuestring;
         }
         if (cJSON_IsNumber(b) == 0 || std::isfinite(b->valuedouble) == 0 || b->valuedouble < 0.0 ||
             b->valuedouble != static_cast<double>(static_cast<std::uint64_t>(b->valuedouble))) {
@@ -488,6 +500,7 @@ bool AssetListLoad(const Project& proj, AssetList& out, Error& err) {
         a.cooked = cok->valuestring;
         a.hash = h->valuestring;
         a.bytes = static_cast<std::uint64_t>(b->valuedouble);
+        a.kind = kind;
         out.items.push_back(std::move(a));
     }
     return true;
@@ -516,6 +529,13 @@ bool AssetImportGlb(const Project& proj, const std::string& id,
             break;
         }
     }
+    if (slot != nullptr && slot->kind != "model") {
+        // El id existía con otro kind: normalizar rutas a .glb y huérfano fuera.
+        slot->source = "assets/source/" + id + ".glb";
+        slot->cooked = "assets/cooked/" + id + ".oasisasset";
+        std::error_code rm_ec;
+        std::filesystem::remove(proj.root / "assets" / "source" / (id + ".hdr"), rm_ec);
+    }
     if (slot == nullptr) {
         if (list.items.size() >= kMaxAssets) {
             err.set("LIMIT", "Se alcanzó el límite de assets.");
@@ -535,7 +555,153 @@ bool AssetImportGlb(const Project& proj, const std::string& id,
     if (!CopyAndValidateGlb(source_path, dst, bytes, hash, err)) return false;
     slot->bytes = bytes;
     slot->hash = hash;
-    if (!WriteCooked(proj, *slot, err)) return false;
+    slot->kind = "model";
+    if (!WriteCooked(proj, *slot, "model", err)) return false;
+    if (!WriteRegistry(proj, list, err)) return false;
+    return true;
+}
+
+// Valida Radiance HDR (.hdr RGBE): magia + tope 32MB, copia con hash FNV-1a 64.
+bool CopyAndValidateHdr(const std::filesystem::path& src, const std::filesystem::path& dst,
+                        std::uint64_t& out_bytes, std::string& out_hash, Error& err) {
+    std::error_code ec;
+    std::uintmax_t fsize = std::filesystem::file_size(src, ec);
+    if (ec) {
+        err.set("NOT_FOUND", "No se pudo abrir el HDRI '" + src.string() + "'.");
+        return false;
+    }
+    constexpr std::uint64_t kMaxHdrBytes = 32ULL * 1024ULL * 1024ULL;
+    if (fsize < 32 || fsize > kMaxHdrBytes) {
+        err.set("BAD_FORMAT", "El HDRI debe ser un Radiance .hdr válido de menos de 32MB.");
+        return false;
+    }
+    std::ifstream in(src, std::ios::binary);
+    if (!in) {
+        err.set("NOT_FOUND", "No se pudo abrir el HDRI '" + src.string() + "'.");
+        return false;
+    }
+    char magic[11] = {};
+    in.read(magic, 10);
+    if (static_cast<std::size_t>(in.gcount()) != 10 ||
+        (std::memcmp(magic, "#?RADIANCE", 10) != 0 && std::memcmp(magic, "#?RGBE", 6) != 0)) {
+        err.set("BAD_FORMAT", "El HDRI debe ser un Radiance .hdr válido (magia #?RADIANCE).");
+        return false;
+    }
+    in.close();
+    std::uint64_t h = 1469598103934665603ULL;
+    in.open(src, std::ios::binary);
+    if (!in) {
+        err.set("IO", "No se pudo leer el HDRI.");
+        return false;
+    }
+    std::error_code ec2;
+    std::filesystem::create_directories(dst.parent_path(), ec2);
+    std::filesystem::path tmp = TempPathFor(dst);
+    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        err.set("IO", "No se pudo preparar el HDRI importado.");
+        return false;
+    }
+    std::array<char, 8192> buf{};
+    std::uint64_t total = 0;
+    while (in) {
+        in.read(buf.data(), static_cast<std::streamsize>(buf.size()));
+        std::streamsize got = in.gcount();
+        if (got < 0) got = 0;
+        for (std::streamsize i = 0; i < got; ++i) {
+            h ^= static_cast<unsigned char>(buf[static_cast<std::size_t>(i)]);
+            h *= 1099511628211ULL;
+        }
+        if (got > 0) {
+            out.write(buf.data(), got);
+            if (!out) {
+                in.close();
+                out.close();
+                std::filesystem::remove(tmp, ec2);
+                err.set("IO", "No se pudo copiar el HDRI importado.");
+                return false;
+            }
+            total += static_cast<std::uint64_t>(got);
+        }
+    }
+    if (in.bad()) {
+        in.close();
+        out.close();
+        std::filesystem::remove(tmp, ec2);
+        err.set("IO", "No se pudo copiar el HDRI importado.");
+        return false;
+    }
+    out.flush();
+    out.close();
+    in.close();
+    if (!out || total != fsize) {
+        std::filesystem::remove(tmp, ec2);
+        err.set("IO", "No se pudo copiar el HDRI importado.");
+        return false;
+    }
+    if (!AtomicReplaceFile(tmp, dst, err)) {
+        std::filesystem::remove(tmp, ec2);
+        return false;
+    }
+    out_bytes = fsize;
+    char hex[17];
+    std::snprintf(hex, sizeof(hex), "%016llx", static_cast<unsigned long long>(h));
+    out_hash.assign(hex, 16);
+    return true;
+}
+
+bool AssetImportSky(const Project& proj, const std::string& id,
+                    const std::filesystem::path& source_path, Error& err) {
+    err.clear();
+    if (!ValidId(id)) {
+        err.set("INVALID_ARG", "Uso: asset import-sky ID archivo.hdr");
+        return false;
+    }
+    if (source_path.empty()) {
+        err.set("INVALID_ARG", "Uso: asset import-sky ID archivo.hdr");
+        return false;
+    }
+    AssetList list;
+    if (!AssetListLoad(proj, list, err)) return false;
+    std::error_code ec;
+    std::filesystem::create_directories(proj.root / "assets" / "source", ec);
+    std::filesystem::create_directories(proj.root / "assets" / "cooked", ec);
+    Asset* slot = nullptr;
+    for (auto& a : list.items) {
+        if (a.id == id) {
+            slot = &a;
+            break;
+        }
+    }
+    if (slot != nullptr && slot->kind != "sky") {
+        // El id existía con otro kind: normalizar rutas a .hdr y huérfano fuera.
+        slot->source = "assets/source/" + id + ".hdr";
+        slot->cooked = "assets/cooked/" + id + ".oasisasset";
+        std::error_code rm_ec;
+        std::filesystem::remove(proj.root / "assets" / "source" / (id + ".glb"), rm_ec);
+    }
+    if (slot == nullptr) {
+        if (list.items.size() >= kMaxAssets) {
+            err.set("LIMIT", "Se alcanzó el límite de assets.");
+            return false;
+        }
+        Asset a;
+        a.id = id;
+        a.source = "assets/source/" + id + ".hdr";
+        a.cooked = "assets/cooked/" + id + ".oasisasset";
+        a.kind = "sky";
+        list.items.push_back(std::move(a));
+        slot = &list.items.back();
+    }
+    std::filesystem::path rel_src(slot->source, std::filesystem::path::format::generic_format);
+    std::filesystem::path dst = proj.root / rel_src;
+    std::uint64_t bytes = 0;
+    std::string hash;
+    if (!CopyAndValidateHdr(source_path, dst, bytes, hash, err)) return false;
+    slot->bytes = bytes;
+    slot->hash = hash;
+    slot->kind = "sky";
+    if (!WriteCooked(proj, *slot, "sky", err)) return false;
     if (!WriteRegistry(proj, list, err)) return false;
     return true;
 }
@@ -564,8 +730,8 @@ std::string AssetListToJson(const AssetList& assets) {
     for (std::size_t i = 0; i < assets.items.size(); ++i) {
         const Asset& a = assets.items[i];
         if (i != 0) oss << ",";
-        oss << "{\"id\":\"" << JsonEscape(a.id) << "\",\"type\":\"model\",\"source\":\""
-            << JsonEscape(a.source) << "\",\"cooked\":\"" << JsonEscape(a.cooked)
+        oss << "{\"id\":\"" << JsonEscape(a.id) << "\",\"type\":\"" << JsonEscape(a.kind)
+            << "\",\"source\":\"" << JsonEscape(a.source) << "\",\"cooked\":\"" << JsonEscape(a.cooked)
             << "\",\"hash\":\"" << JsonEscape(a.hash) << "\",\"bytes\":" << a.bytes << "}";
     }
     oss << "]}}";

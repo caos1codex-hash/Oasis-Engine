@@ -467,6 +467,22 @@ bool SceneLoadActive(const Project& proj, Scene& out, Error& err) {
         return false;
     }
     loaded.name = lname;
+    // "sky" opcional (ausente = escena vieja sin cielo): null o {"asset_id": ID}.
+    cJSON* sky = cJSON_GetObjectItemCaseSensitive(obj, "sky");
+    if (sky != nullptr && cJSON_IsNull(sky) == 0) {
+        if (cJSON_IsObject(sky) == 0) {
+            err.set("BAD_FORMAT", "El campo 'sky' debe ser un objeto o null.");
+            return false;
+        }
+        cJSON* said = cJSON_GetObjectItemCaseSensitive(sky, "asset_id");
+        std::string sky_id;
+        if (!JsonCopyString(said, sky_id, "sky.asset_id", err)) return false;
+        if (!ValidId(sky_id)) {
+            err.set("BAD_FORMAT", "Identificador de sky inválido en disco.");
+            return false;
+        }
+        loaded.sky_asset = sky_id;
+    }
     int count = cJSON_GetArraySize(entities);
     for (int i = 0; i < count; ++i) {
         cJSON* src = cJSON_GetArrayItem(entities, i);
@@ -609,7 +625,12 @@ bool SceneSaveActive(const Project& proj, const Scene& scene, Error& err) {
         return false;
     }
     std::ostringstream oss;
-    oss << "{\n  \"format\": 1,\n  \"name\": \"" << JsonEscape(scene.name) << "\",\n  \"entities\": [\n";
+    oss << "{\n  \"format\": 1,\n  \"name\": \"" << JsonEscape(scene.name) << "\",\n";
+    if (scene.sky_asset.empty())
+        oss << "  \"sky\": null,\n";
+    else
+        oss << "  \"sky\": {\"asset_id\": \"" << JsonEscape(scene.sky_asset) << "\"},\n";
+    oss << "  \"entities\": [\n";
     for (std::size_t i = 0; i < scene.entities.size(); ++i) {
         const Entity& e = scene.entities[i];
         oss << "    {\n      \"id\": \"" << JsonEscape(e.id) << "\",\n      \"name\": \""
@@ -946,7 +967,12 @@ std::string SceneListToJson(const Project& proj, const std::vector<std::string>&
 std::string StateToJson(const Project& proj, const Scene& scene) {
     std::ostringstream oss;
     oss << "{\"schema_version\":" << kSchemaVersion << ",\"ok\":true,\"result\":{\"project\":\""
-        << JsonEscape(proj.name) << "\",\"scene\":\"" << JsonEscape(scene.name) << "\",\"entities\":[";
+        << JsonEscape(proj.name) << "\",\"scene\":\"" << JsonEscape(scene.name) << "\",\"sky\":";
+    if (scene.sky_asset.empty())
+        oss << "null";
+    else
+        oss << "\"" << JsonEscape(scene.sky_asset) << "\"";
+    oss << ",\"entities\":[";
     for (std::size_t i = 0; i < scene.entities.size(); ++i) {
         if (i != 0) oss << ",";
         oss << EntityToJson(scene.entities[i]);

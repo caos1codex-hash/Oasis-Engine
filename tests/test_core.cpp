@@ -232,6 +232,44 @@ int main() {
     EXPECT(!oasis::EntitySetCamera(cammed, "Sun", 0.0f, err), "fov 0 debe fallar");
     EXPECT(!oasis::EntitySetCamera(cammed, "Plain", 60.0f, err), "fov sin Camera debe fallar");
 
+    // 8. Sky: .hdr mínimo + import-sky + round-trip en escena
+    {
+        // Radiance 2x1 plano (ancho<8 permite scanlines sin RLE).
+        std::string hdr = "#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y 1 +X 2\n";
+        const char px[8] = {10, 10, 10, 100, 20, 10, 5, 100};
+        hdr.append(px, sizeof(px));
+        EXPECT(WriteText(root / "sky.hdr", hdr), "hdr mínimo");
+        EXPECT(oasis::AssetImportSky(proj, "DaySky", root / "sky.hdr", err), err.message.c_str());
+        oasis::AssetList al2;
+        EXPECT(oasis::AssetListLoad(proj, al2, err), err.message.c_str());
+        bool found_sky = false;
+        for (const auto& a : al2.items) {
+            if (a.id == "DaySky" && a.kind == "sky") found_sky = true;
+        }
+        EXPECT(found_sky, "sky en manifiesto con kind");
+        EXPECT(fs::exists(root / "assets" / "source" / "DaySky.hdr", ec), "hdr importado");
+        cammed.sky_asset = "DaySky";
+        EXPECT(oasis::SceneSaveActive(proj, cammed, err), err.message.c_str());
+        oasis::Scene with_sky;
+        EXPECT(oasis::SceneLoadActive(proj, with_sky, err), err.message.c_str());
+        EXPECT(with_sky.sky_asset == "DaySky", "sky persiste");
+        with_sky.sky_asset.clear();
+        EXPECT(oasis::SceneSaveActive(proj, with_sky, err), err.message.c_str());
+        oasis::Scene no_sky;
+        EXPECT(oasis::SceneLoadActive(proj, no_sky, err) && no_sky.sky_asset.empty(),
+               "sky none persiste");
+        // Sky inválido se rechaza sin mutar.
+        fs::path spath2 = root / "scenes" / "Main.scene.json";
+        EXPECT(WriteText(spath2, "{\"format\":1,\"name\":\"Main\",\"sky\":{\"asset_id\":\"mal "
+                                 "id!\"},\"entities\":[]}"),
+               "escribir sky malo");
+        EXPECT(!oasis::SceneLoadActive(proj, no_sky, err), "sky malo debe fallar");
+        EXPECT(no_sky.sky_asset.empty(), "carga fallida no muta sky");
+        EXPECT(WriteText(spath2, "{\"format\":1,\"name\":\"Main\",\"sky\":5,\"entities\":[]}"),
+               "escribir sky tipo malo");
+        EXPECT(!oasis::SceneLoadActive(proj, no_sky, err), "sky tipo malo debe fallar");
+    }
+
     // 6. Delete entidad persiste
     EXPECT(oasis::EntityDelete(again, "Cube", err), err.message.c_str());
     EXPECT(again.entities.empty(), "delete memoria");

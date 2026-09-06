@@ -130,6 +130,15 @@ struct Context {
     int quality_idx = 0;
     int quality_up_streak = 0;
     bool low_warned = false;  // aviso único si falla el target reducido
+    // Cielo HDRI: textura equirect + shaders + estados (carga única perezosa).
+    ID3D11ShaderResourceView* sky_srv = nullptr;
+    ID3D11VertexShader* sky_vs = nullptr;
+    ID3D11PixelShader* sky_ps = nullptr;
+    ID3D11InputLayout* sky_layout = nullptr;
+    ID3D11SamplerState* sky_sampler = nullptr;  // wrap en U (sin costura)
+    ID3D11RasterizerState* rs_sky = nullptr;    // CULL_FRONT: cámara dentro del cubo
+    std::string sky_asset;  // id cargado ("" = ninguno)
+    bool sky_attempted = false;
     int buf_w = 0;  // tamaño real del backbuffer (resize en cada frame si cambia)
     int buf_h = 0;
     std::vector<ModelCache> models;
@@ -152,6 +161,12 @@ void ReleaseContext(Context& c) {
     if (c.blit_layout != nullptr) c.blit_layout->Release();
     if (c.blit_ps != nullptr) c.blit_ps->Release();
     if (c.blit_vs != nullptr) c.blit_vs->Release();
+    if (c.rs_sky != nullptr) c.rs_sky->Release();
+    if (c.sky_sampler != nullptr) c.sky_sampler->Release();
+    if (c.sky_layout != nullptr) c.sky_layout->Release();
+    if (c.sky_ps != nullptr) c.sky_ps->Release();
+    if (c.sky_vs != nullptr) c.sky_vs->Release();
+    if (c.sky_srv != nullptr) c.sky_srv->Release();
     if (c.sampler != nullptr) c.sampler->Release();
     if (c.matrices != nullptr) c.matrices->Release();
     if (c.cross_vb != nullptr) c.cross_vb->Release();
@@ -186,6 +201,12 @@ void ReleaseContext(Context& c) {
     c.blit_ps = nullptr;
     c.blit_layout = nullptr;
     c.blit_vb = nullptr;
+    c.sky_srv = nullptr;
+    c.sky_vs = nullptr;
+    c.sky_ps = nullptr;
+    c.sky_layout = nullptr;
+    c.sky_sampler = nullptr;
+    c.rs_sky = nullptr;
     c.cube_ib = nullptr;
     c.cube_vb = nullptr;
     c.layout = nullptr;
@@ -1583,6 +1604,54 @@ struct BlitVertex {
     float uv[2];
 };
 
+// Cielo HDRI: cubo centrado en la cámara con textura equirect + tonemap ACES.
+// Solo fondo: la luz de escena sigue siendo direccional (sin IBL).
+const char* kSkyVsSrc =
+    "cbuffer SceneBuffer : register(b0) {"
+    "  row_major float4x4 wvp;"
+    "  row_major float4x4 world;"
+    "  float4 tint;"
+    "  float4 light_dir;"
+    "  float4 light_col;"
+    "  float4 eye_pos;"
+    "  float4 tex_params;"
+    "  float4 base_col;"
+    "};"
+    "struct I { float3 p:POSITION; };"
+    "struct O { float4 p:SV_POSITION; float3 wp:TEXCOORD0; };"
+    "O SVSMain(I i) {"
+    "  O o;"
+    "  o.p  = mul(float4(i.p,1), wvp);"
+    "  o.wp = mul(float4(i.p,1), world).xyz;"
+    "  return o;"
+    "}";
+const char* kSkyPsSrc =
+    "cbuffer SceneBuffer : register(b0) {"
+    "  row_major float4x4 wvp;"
+    "  row_major float4x4 world;"
+    "  float4 tint;"
+    "  float4 light_dir;"
+    "  float4 light_col;"
+    "  float4 eye_pos;"
+    "  float4 tex_params;"
+    "  float4 base_col;"
+    "};"
+    "Texture2D sky_tex : register(t0);"
+    "SamplerState sky_smp : register(s0);"
+    "struct I { float4 p:SV_POSITION; float3 wp:TEXCOORD0; };"
+    "float4 SPSMain(I i) : SV_TARGET {"
+    "  float3 d = i.wp - eye_pos.xyz;"
+    "  float len = length(d);"
+    "  if (!(len > 1e-6)) return float4(0.02, 0.05, 0.09, 1);"
+    "  d /= len;"
+    "  float u = atan2(d.x, d.z) * 0.15915494 + 0.5;"
+    "  float v = asin(clamp(d.y, -1.0, 1.0)) * 0.31830988 + 0.5;"
+    "  float3 hdr = sky_tex.Sample(sky_smp, float2(u, v)).rgb;"
+    "  float3 t = (hdr * (2.51 * hdr + 0.03)) / (hdr * (2.43 * hdr + 0.59) + 0.14);"
+    "  t = pow(saturate(t), 1.0 / 2.2);"
+    "  return float4(t, 1);"
+    "}";
+
 // Niveles de resolución (1.0 = nativa). Histéresis en el evaluador del bucle.
 static const float kQualityScales[5] = {1.0f, 0.85f, 0.7f, 0.55f, 0.4f};
 
@@ -1798,6 +1867,51 @@ bool Initialize(Context& ctx, HWND hwnd, Error& err) {
         D3D11_SUBRESOURCE_DATA sd2{};
         sd2.pSysMem = kBlitTri;
         hr = ctx.device->CreateBuffer(&bd2, &sd2, &ctx.blit_vb);
+    }
+    if (SUCCEEDED(hr)) {
+        // Cielo HDRI: shaders equirect + layout POSITION + sampler con wrap en U.
+        ID3DBlob* svs = nullptr;
+        ID3DBlob* sps = nullptr;
+        bool sok = CompileShader(kSkyVsSrc, "SVSMain", "vs_4_0", &svs, err) &&
+                   CompileShader(kSkyPsSrc, "SPSMain", "ps_4_0", &sps, err);
+        if (sok) {
+            hr = ctx.device->CreateVertexShader(svs->GetBufferPointer(), svs->GetBufferSize(),
+                                                nullptr, &ctx.sky_vs);
+            if (SUCCEEDED(hr))
+                hr = ctx.device->CreatePixelShader(sps->GetBufferPointer(), sps->GetBufferSize(),
+                                                   nullptr, &ctx.sky_ps);
+            D3D11_INPUT_ELEMENT_DESC selems[1] = {
+                {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA,
+                 0}};
+            if (SUCCEEDED(hr))
+                hr = ctx.device->CreateInputLayout(selems, 1, svs->GetBufferPointer(),
+                                                   svs->GetBufferSize(), &ctx.sky_layout);
+        } else {
+            hr = E_FAIL;  // err ya describe el shader que falló
+        }
+        if (svs != nullptr) svs->Release();
+        if (sps != nullptr) sps->Release();
+    }
+    if (SUCCEEDED(hr)) {
+        D3D11_SAMPLER_DESC skysd{};
+        skysd.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
+        skysd.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;  // equirect sin costura
+        skysd.AddressV = D3D11_TEXTURE_ADDRESS_CLAMP;
+        skysd.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+        skysd.MaxAnisotropy = 1;
+        skysd.ComparisonFunc = D3D11_COMPARISON_NEVER;
+        skysd.MinLOD = 0.0f;
+        skysd.MaxLOD = D3D11_FLOAT32_MAX;
+        hr = ctx.device->CreateSamplerState(&skysd, &ctx.sky_sampler);
+    }
+    if (SUCCEEDED(hr)) {
+        // Dentro del cubo se ven sus caras traseras.
+        D3D11_RASTERIZER_DESC rsd{};
+        rsd.FillMode = D3D11_FILL_SOLID;
+        rsd.CullMode = D3D11_CULL_FRONT;
+        rsd.FrontCounterClockwise = FALSE;
+        rsd.DepthClipEnable = TRUE;
+        hr = ctx.device->CreateRasterizerState(&rsd, &ctx.rs_sky);
     }
     if (FAILED(hr)) {
         err.set("GPU", "No se pudo crear los buffers.");
@@ -2445,6 +2559,82 @@ bool EnsureLowResSize(Context& ctx, int full_w, int full_h, float scale, Error& 
     return true;
 }
 
+// Cielo HDRI de la escena (carga única perezosa). Devuelve true si hay sky listo.
+// Fuente: assets/source/<sky>.hdr (Radiance RGBE) decodificado a float.
+bool EnsureSky(Context& ctx, const Project& proj, const Scene& scene) {
+    if (ctx.sky_attempted) return ctx.sky_srv != nullptr;
+    ctx.sky_attempted = true;
+    if (scene.sky_asset.empty()) return false;
+    ctx.sky_asset = scene.sky_asset;
+    std::filesystem::path path =
+        proj.root / "assets" / "source" / (scene.sky_asset + ".hdr");
+    std::error_code ec;
+    std::uintmax_t fsize = std::filesystem::file_size(path, ec);
+    constexpr std::uint64_t kMaxHdrBytes = 32ULL * 1024ULL * 1024ULL;
+    if (ec || fsize < 32 || fsize > kMaxHdrBytes) {
+        std::fprintf(stderr, "Aviso: HDRI '%s' ilegible, sin cielo.\n", scene.sky_asset.c_str());
+        return false;
+    }
+    std::vector<unsigned char> file(static_cast<std::size_t>(fsize));
+    std::FILE* f = nullptr;
+    if (::fopen_s(&f, path.string().c_str(), "rb") != 0 || f == nullptr) {
+        std::fprintf(stderr, "Aviso: HDRI '%s' ilegible, sin cielo.\n", scene.sky_asset.c_str());
+        return false;
+    }
+    std::size_t got = std::fread(file.data(), 1, file.size(), f);
+    std::fclose(f);
+    if (got != file.size()) {
+        std::fprintf(stderr, "Aviso: HDRI '%s' ilegible, sin cielo.\n", scene.sky_asset.c_str());
+        return false;
+    }
+    int w = 0, h = 0, comp = 0;
+    float* px =
+        stbi_loadf_from_memory(file.data(), static_cast<int>(file.size()), &w, &h, &comp, 3);
+    if (px == nullptr || w <= 0 || h <= 0 || w > 2048 || h > 2048 ||
+        static_cast<std::uint64_t>(w) * static_cast<std::uint64_t>(h) * 16ULL >
+            64ULL * 1024ULL * 1024ULL) {
+        if (px != nullptr) stbi_image_free(px);
+        std::fprintf(stderr, "Aviso: HDRI '%s' no decodificable o enorme, sin cielo.\n",
+                     scene.sky_asset.c_str());
+        return false;
+    }
+    std::vector<float> rgba(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4U);
+    for (std::size_t i = 0, n = static_cast<std::size_t>(w) * static_cast<std::size_t>(h); i < n;
+         ++i) {
+        rgba[i * 4U] = px[i * 3U];
+        rgba[i * 4U + 1U] = px[i * 3U + 1U];
+        rgba[i * 4U + 2U] = px[i * 3U + 2U];
+        rgba[i * 4U + 3U] = 1.0f;
+    }
+    stbi_image_free(px);
+    D3D11_TEXTURE2D_DESC td{};
+    td.Width = static_cast<UINT>(w);
+    td.Height = static_cast<UINT>(h);
+    td.MipLevels = 1;
+    td.ArraySize = 1;
+    td.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    td.SampleDesc.Count = 1;
+    td.Usage = D3D11_USAGE_DEFAULT;
+    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    D3D11_SUBRESOURCE_DATA tsd{};
+    tsd.pSysMem = rgba.data();
+    tsd.SysMemPitch = static_cast<UINT>(w) * 16U;
+    ID3D11Texture2D* tex = nullptr;
+    HRESULT hr = ctx.device->CreateTexture2D(&td, &tsd, &tex);
+    if (SUCCEEDED(hr)) hr = ctx.device->CreateShaderResourceView(tex, nullptr, &ctx.sky_srv);
+    if (tex != nullptr) tex->Release();
+    if (FAILED(hr)) {
+        if (ctx.sky_srv != nullptr) {
+            ctx.sky_srv->Release();
+            ctx.sky_srv = nullptr;
+        }
+        std::fprintf(stderr, "Aviso: HDRI '%s' no utilizable en GPU, sin cielo.\n",
+                     scene.sky_asset.c_str());
+        return false;
+    }
+    return true;
+}
+
 HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int width, int height,
                   bool vsync) {
     D3D11_VIEWPORT full{};
@@ -2528,11 +2718,45 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
     if (!has_view || !has_proj) {
         return ctx.swap->Present(vsync ? 1 : 0, 0);
     }
+    if (EnsureSky(ctx, proj, scene)) {
+        // Cubo 1500 centrado en la cámara (< far 2000): fondo HDRI primero.
+        float sworld[16], swv[16];
+        SceneBuffer ssb{};
+        Transform skyt{};
+        skyt.position = cam_t->position;
+        skyt.scale = {1500.0f, 1500.0f, 1500.0f};
+        WorldMatrix(sworld, skyt);
+        MatMul(swv, sworld, view);
+        MatMul(ssb.wvp, swv, proj_m);
+        std::memcpy(ssb.world, sworld, sizeof(sworld));
+        ssb.tint[0] = ssb.tint[1] = ssb.tint[2] = ssb.tint[3] = 1.0f;
+        ssb.eye_pos[0] = cam_t->position.x;
+        ssb.eye_pos[1] = cam_t->position.y;
+        ssb.eye_pos[2] = cam_t->position.z;
+        ctx.context->IASetInputLayout(ctx.sky_layout);
+        ctx.context->IASetVertexBuffers(0, 1, &ctx.cube_vb, &stride, &off);
+        ctx.context->IASetIndexBuffer(ctx.cube_ib, DXGI_FORMAT_R16_UINT, 0);
+        ctx.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        ctx.context->VSSetShader(ctx.sky_vs, nullptr, 0);
+        ctx.context->PSSetShader(ctx.sky_ps, nullptr, 0);
+        ctx.context->VSSetConstantBuffers(0, 1, &ctx.matrices);
+        ctx.context->PSSetConstantBuffers(0, 1, &ctx.matrices);
+        ctx.context->PSSetShaderResources(0, 1, &ctx.sky_srv);
+        ctx.context->PSSetSamplers(0, 1, &ctx.sky_sampler);
+        ctx.context->RSSetState(ctx.rs_sky);
+        ctx.context->UpdateSubresource(ctx.matrices, 0, nullptr, &ssb, 0, 0);
+        ctx.context->DrawIndexed(36, 0, 0);
+        ctx.context->RSSetState(nullptr);
+        // Restaurar pipeline 3D (el bucle de entidades lo espera).
+        ctx.context->IASetInputLayout(ctx.layout);
+        ctx.context->VSSetShader(ctx.vs, nullptr, 0);
+        ctx.context->PSSetShader(ctx.ps, nullptr, 0);
+        ctx.context->PSSetSamplers(0, 1, &ctx.sampler);
+    }
     for (const auto& e : scene.entities) {
         if (!e.has_mesh) continue;
         float world[16], wv[16];
-        SceneBuffer sb{};
-        ModelCache* model = nullptr;
+        SceneBuffer sb{};        ModelCache* model = nullptr;
         UINT count = 36;
         if (e.mesh.primitive == "asset") {
             Error tmp;
