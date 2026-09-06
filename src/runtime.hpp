@@ -11,6 +11,7 @@ struct Runtime {
     std::uint64_t tick_count = 0;
     double elapsed_seconds = 0.0;
     bool initialized = false;
+    bool simulate = true;  // false = modo edición: update cuenta ticks sin física
 
     bool init(Scene* s, Error& err);
     bool update(double delta_seconds, Error& err);

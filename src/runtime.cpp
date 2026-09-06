@@ -117,11 +117,12 @@ bool Runtime::update(double delta_seconds, Error& err) {
         return false;
     }
     // Física en substeps de <=1/60 para estabilidad con dt grande (ventana).
-    // Headless usa 1/60: un solo substep, determinista.
+    // Headless usa 1/60: un solo substep, determinista. Con simulate=false
+    // (edición en ventana) el tick avanza pero la escena no se mueve.
     double remaining = delta_seconds;
     while (remaining > 1e-9) {
         double h = remaining > 1.0 / 60.0 ? 1.0 / 60.0 : remaining;
-        StepPhysics(*scene, static_cast<float>(h));
+        if (simulate) StepPhysics(*scene, static_cast<float>(h));
         remaining -= h;
     }
     ++tick_count;

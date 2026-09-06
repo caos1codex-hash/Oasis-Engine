@@ -97,6 +97,10 @@ struct Context {
     HBRUSH info_brush_b = nullptr;  // muestra de color Light
     HWND info_swatch_a = nullptr;
     HWND info_swatch_b = nullptr;
+    // Modo Play (Unity-like): edición tiesa por defecto; P/botón alterna física.
+    bool playing = false;
+    Scene play_snapshot;
+    bool play_has_snapshot = false;
     ID3D11Device* device = nullptr;
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain* swap = nullptr;
@@ -550,9 +554,34 @@ bool CloseTopPanels(Context& ctx) {
     return closed;
 }
 
+// Play: al entrar se congela la edición (snapshot); al salir se restaura.
+// La física la gobierna ctx.playing (el bucle copia a rt.simulate).
+void StartPlay(Context& ctx) {
+    if (ctx.playing || ctx.scene == nullptr) return;
+    ctx.play_snapshot = *ctx.scene;
+    ctx.play_has_snapshot = true;
+    ctx.playing = true;
+}
+
+void StopPlay(Context& ctx) {
+    if (!ctx.playing) return;
+    if (ctx.play_has_snapshot && ctx.scene != nullptr) *ctx.scene = ctx.play_snapshot;
+    ctx.play_has_snapshot = false;
+    ctx.playing = false;
+}
+
+// Botón Play arriba-izquierda (52x52 en 12,12, píxeles cliente).
+bool PlayButtonHit(int mx, int my) {
+    return mx >= 12 && mx < 12 + 52 && my >= 12 && my < 12 + 52;
+}
+
 // Segundo paso de ESC: confirma la salida y guarda los cambios de la escena.
 // Devuelve true si hay que salir.
 bool ConfirmExitAndSave(HWND hwnd, Context& ctx) {
+    if (ctx.playing) {
+        StopPlay(ctx);  // primera ESC en Play: vuelve a edición sin guardar
+        return false;
+    }
     if (CloseTopPanels(ctx)) return false;
     int r = ::MessageBoxA(hwnd, "Guardar los cambios de la escena y salir?", "Oasis Engine",
                           MB_YESNOCANCEL | MB_ICONQUESTION);
