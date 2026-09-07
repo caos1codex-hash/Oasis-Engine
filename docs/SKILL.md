@@ -109,6 +109,7 @@ oasis stop [--project RUTA] [--save]
    Si tocas `DemoGame`: guarda estado → prueba → restaura → `git diff DemoGame/` vacío.
 4. No versiones `build/`, `*.exe/obj/pdb`, ni temporales (`*.tmp`).
 5. Cambios pequeños, un commit por cambio, `ctest` en verde antes de commit.
+   Compilar **Debug y Release** (el usuario abre ambos; nunca dejar un .exe viejo).
 6. `stdout` siempre JSON válido; diagnósticos a `stderr`.
 7. Tras cambiar el renderer: `cmake --build` + `ctest` + pedir a un humano la
    verificación visual (título: `foco/eventos/raton/mouse/sel/eje`).
