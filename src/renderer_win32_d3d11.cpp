@@ -2484,7 +2484,7 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         nx = (px / static_cast<float>(w)) * 2.0f - 1.0f;
         ny = 1.0f - (py / static_cast<float>(h)) * 2.0f;
     };
-    Vertex v[26];
+    Vertex v[32];  // borde 8 + ejes 6 + cruces de canto 12 + margen
     int n = 0;
     // Fondo visible: gris azulado claro (el azul fondo lo camuflaba) + borde claro.
     auto tri = [&](float ax, float ay, float bx, float by, float cx, float cy) {
@@ -2599,11 +2599,34 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         float cx = ax * r[0] + ay * r[1] + az * r[2];
         float cy = ax * u[0] + ay * u[1] + az * u[2];
         float cl = std::sqrt(cx * cx + cy * cy);
-        if (!(cl > 1e-4f) || std::isfinite(cl) == 0) return;  // eje de canto: se oculta
+        float nx, ny;
+        auto dot = [&](float dpx, float dpy) {
+            ndc(dpx, dpy, nx, ny);
+            v[n].position[0] = nx;
+            v[n].position[1] = ny;
+            v[n].position[2] = 0.0f;
+            v[n].normal[0] = 0.0f;
+            v[n].normal[1] = 0.0f;
+            v[n].normal[2] = 1.0f;
+            v[n].color[0] = cr;
+            v[n].color[1] = cg;
+            v[n].color[2] = cb;
+            v[n].uv[0] = 0.0f;
+            v[n].uv[1] = 0.0f;
+            ++n;
+        };
+        float ccx = (x0 + x1) * 0.5f, ccy = (y0 + y1) * 0.5f;
+        if (!(cl > 1e-4f) || std::isfinite(cl) == 0) {
+            // Eje de canto: cruz pequeña en el centro (siempre se ven los 3).
+            dot(ccx - 4.0f, ccy);
+            dot(ccx + 4.0f, ccy);
+            dot(ccx, ccy - 4.0f);
+            dot(ccx, ccy + 4.0f);
+            return;
+        }
         float R = static_cast<float>(S) * 0.5f - 16.0f;
         float ex = (x0 + x1) * 0.5f + (cx / cl) * R;
         float ey = (y0 + y1) * 0.5f - (cy / cl) * R;
-        float nx, ny;
         ndc((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, nx, ny);
         v[n].position[0] = nx;
         v[n].position[1] = ny;
