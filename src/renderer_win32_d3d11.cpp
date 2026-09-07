@@ -2235,13 +2235,13 @@ void DrawToolbar(Context& ctx, int w, int h) {
         tri(x0 + s, y0, x0 + s, y0 + s, x0, y0 + s, r, g, b);
     };
     const float fw = static_cast<float>(w), fh = static_cast<float>(kToolbarH);
-    tri(0.0f, 0.0f, fw, 0.0f, 0.0f, fh, 0.06f, 0.08f, 0.11f);
-    tri(fw, 0.0f, fw, fh, 0.0f, fh, 0.06f, 0.08f, 0.11f);
+    tri(0.0f, 0.0f, fw, 0.0f, 0.0f, fh, 0.72f, 0.73f, 0.75f);
+    tri(fw, 0.0f, fw, fh, 0.0f, fh, 0.72f, 0.73f, 0.75f);
     for (int i = 0; i < kToolCount; ++i) {
         float x0 = static_cast<float>(kToolX0 + i * (kToolSize + kToolGap));
         float y0 = static_cast<float>(kToolY0);
         float s = static_cast<float>(kToolSize);
-        rect(x0, y0, s, 0.10f, 0.12f, 0.17f);
+        rect(x0, y0, s, 0.60f, 0.61f, 0.64f);
         if (i == kToolPlay) {
             if (ctx.playing) {
                 const float m = 14.0f, q = 26.0f;  // ■ rojo
@@ -2252,13 +2252,13 @@ void DrawToolbar(Context& ctx, int w, int h) {
                     0.25f, 1.0f, 0.25f);  // ▶ verde
             }
         } else if (i == kToolSave) {
-            // ↓ guardar: vástago + cabeza.
-            tri(x0 + 16.0f, y0 + 8.0f, x0 + 24.0f, y0 + 8.0f, x0 + 16.0f, y0 + 24.0f, 0.9f, 0.9f,
-                0.9f);
-            tri(x0 + 24.0f, y0 + 8.0f, x0 + 24.0f, y0 + 24.0f, x0 + 16.0f, y0 + 24.0f, 0.9f, 0.9f,
-                0.9f);
-            tri(x0 + 10.0f, y0 + 22.0f, x0 + 30.0f, y0 + 22.0f, x0 + 20.0f, y0 + 34.0f, 0.9f, 0.9f,
-                0.9f);
+            // ↓ guardar: vástago + cabeza (oscuro sobre gris claro).
+            tri(x0 + 16.0f, y0 + 8.0f, x0 + 24.0f, y0 + 8.0f, x0 + 16.0f, y0 + 24.0f, 0.16f, 0.17f,
+                0.19f);
+            tri(x0 + 24.0f, y0 + 8.0f, x0 + 24.0f, y0 + 24.0f, x0 + 16.0f, y0 + 24.0f, 0.16f, 0.17f,
+                0.19f);
+            tri(x0 + 10.0f, y0 + 22.0f, x0 + 30.0f, y0 + 22.0f, x0 + 20.0f, y0 + 34.0f, 0.16f, 0.17f,
+                0.19f);
         }
     }
     {
@@ -2286,6 +2286,7 @@ void DrawToolbar(Context& ctx, int w, int h) {
         ctx.context->OMSetDepthStencilState(nullptr, 0);
     }
     // Bordes: línea inferior del strip + marco por botón (gizmo_vb del frame).
+    // Oscuros para que se lean sobre el gris claro.
     Vertex e[18];
     int m = 0;
     auto edge = [&](float ax, float ay, float ex, float ey) {
@@ -2300,9 +2301,9 @@ void DrawToolbar(Context& ctx, int w, int h) {
             e[m].normal[0] = 0.0f;
             e[m].normal[1] = 0.0f;
             e[m].normal[2] = 1.0f;
-            e[m].color[0] = 0.55f;
-            e[m].color[1] = 0.60f;
-            e[m].color[2] = 0.68f;
+            e[m].color[0] = 0.25f;
+            e[m].color[1] = 0.27f;
+            e[m].color[2] = 0.30f;
             e[m].uv[0] = 0.0f;
             e[m].uv[1] = 0.0f;
             ++m;
@@ -2484,7 +2485,7 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         nx = (px / static_cast<float>(w)) * 2.0f - 1.0f;
         ny = 1.0f - (py / static_cast<float>(h)) * 2.0f;
     };
-    Vertex v[32];  // borde 8 + ejes 6 + cruces de canto 12 + margen
+    Vertex v[48];  // fondo 6 + marco 8 + ejes/dots con doble pasada
     int n = 0;
     // Fondo visible: gris azulado claro (el azul fondo lo camuflaba) + borde claro.
     auto tri = [&](float ax, float ay, float bx, float by, float cx, float cy) {
@@ -2558,7 +2559,7 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         v[n].uv[1] = 0.0f;
         ++n;
     };
-    float x0 = static_cast<float>(w - M - S), y0 = static_cast<float>(M);
+    float x0 = static_cast<float>(w - M - S), y0 = static_cast<float>(M + kToolbarH);
     float x1 = static_cast<float>(w - M), y1 = static_cast<float>(M + S);
     tri(x0, y0, x1, y0, x0, y1);
     tri(x1, y0, x1, y1, x0, y1);
@@ -2595,13 +2596,24 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
     edge(x1, y0, x1, y1);
     edge(x1, y1, x0, y1);
     edge(x0, y1, x0, y0);
-    auto axis = [&](float ax, float ay, float az, float cr, float cg, float cb) {
-        float cx = ax * r[0] + ay * r[1] + az * r[2];
-        float cy = ax * u[0] + ay * u[1] + az * u[2];
-        float cl = std::sqrt(cx * cx + cy * cy);
+    // Ejes: del centro, mitad positiva brillante y negativa atenuada.
+    // Van con color directo (sin contorno negro: se lo comía) y doble pasada
+    // de 1px para que se vean. El marco sí lleva contorno.
+    {
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (FAILED(ctx.context->Map(ctx.corner_vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+            return;
+        std::memcpy(mapped.pData, v, static_cast<std::size_t>(n) * sizeof(Vertex));
+        ctx.context->Unmap(ctx.corner_vb, 0);
+    }
+    DrawLinesOutlined(ctx, ctx.corner_vb, static_cast<UINT>(n), w, h, nullptr);
+    n = 0;
+    auto seg = [&](float ax, float ay, float ex, float ey, float cr, float cg, float cb) {
         float nx, ny;
-        auto dot = [&](float dpx, float dpy) {
-            ndc(dpx, dpy, nx, ny);
+        const float pxs[4] = {ax, ex, ax + 1.0f, ex + 1.0f};
+        const float pys[4] = {ay, ey, ay, ey};
+        for (int k = 0; k < 4 && n < 48; ++k) {
+            ndc(pxs[k], pys[k], nx, ny);
             v[n].position[0] = nx;
             v[n].position[1] = ny;
             v[n].position[2] = 0.0f;
@@ -2614,45 +2626,24 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
             v[n].uv[0] = 0.0f;
             v[n].uv[1] = 0.0f;
             ++n;
-        };
+        }
+    };
+    auto axis = [&](float ax, float ay, float az, float cr, float cg, float cb) {
+        float cx = ax * r[0] + ay * r[1] + az * r[2];
+        float cy = ax * u[0] + ay * u[1] + az * u[2];
+        float cl = std::sqrt(cx * cx + cy * cy);
         float ccx = (x0 + x1) * 0.5f, ccy = (y0 + y1) * 0.5f;
-        if (!(cl > 1e-4f) || std::isfinite(cl) == 0) {
+        if (!(cl > 5e-2f) || std::isfinite(cl) == 0) {
             // Eje de canto: cruz pequeña en el centro (siempre se ven los 3).
-            dot(ccx - 4.0f, ccy);
-            dot(ccx + 4.0f, ccy);
-            dot(ccx, ccy - 4.0f);
-            dot(ccx, ccy + 4.0f);
+            // Umbral generoso: casi de canto la dirección parpadea (artefacto).
+            seg(ccx - 4.0f, ccy, ccx + 4.0f, ccy, cr, cg, cb);
+            seg(ccx, ccy - 4.0f, ccx, ccy + 4.0f, cr, cg, cb);
             return;
         }
         float R = static_cast<float>(S) * 0.5f - 16.0f;
         float ex = (x0 + x1) * 0.5f + (cx / cl) * R;
         float ey = (y0 + y1) * 0.5f - (cy / cl) * R;
-        ndc((x0 + x1) * 0.5f, (y0 + y1) * 0.5f, nx, ny);
-        v[n].position[0] = nx;
-        v[n].position[1] = ny;
-        v[n].position[2] = 0.0f;
-        v[n].normal[0] = 0.0f;
-        v[n].normal[1] = 0.0f;
-        v[n].normal[2] = 1.0f;
-        v[n].color[0] = cr * 0.35f;
-        v[n].color[1] = cg * 0.35f;
-        v[n].color[2] = cb * 0.35f;
-        v[n].uv[0] = 0.0f;
-        v[n].uv[1] = 0.0f;
-        ++n;
-        ndc(ex, ey, nx, ny);
-        v[n].position[0] = nx;
-        v[n].position[1] = ny;
-        v[n].position[2] = 0.0f;
-        v[n].normal[0] = 0.0f;
-        v[n].normal[1] = 0.0f;
-        v[n].normal[2] = 1.0f;
-        v[n].color[0] = cr;
-        v[n].color[1] = cg;
-        v[n].color[2] = cb;
-        v[n].uv[0] = 0.0f;
-        v[n].uv[1] = 0.0f;
-        ++n;
+        seg(ccx, ccy, ex, ey, cr, cg, cb);
     };
     axis(1, 0, 0, 1, 0.15f, 0.15f);
     axis(0, 1, 0, 0.25f, 1, 0.25f);
@@ -2663,8 +2654,26 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
             return;
         std::memcpy(mapped.pData, v, static_cast<std::size_t>(n) * sizeof(Vertex));
         ctx.context->Unmap(ctx.corner_vb, 0);
+        SceneBuffer sb{};
+        MatIdentity(sb.wvp);
+        sb.tint[0] = sb.tint[1] = sb.tint[2] = 1.0f;
+        sb.tint[3] = 0.0f;  // unlit: pass-through para overlays
+        UINT stride = sizeof(Vertex), off = 0;
+        D3D11_VIEWPORT full{};
+        full.Width = static_cast<FLOAT>(w);
+        full.Height = static_cast<FLOAT>(h);
+        full.MaxDepth = 1.0f;
+        ctx.context->OMSetDepthStencilState(ctx.no_depth, 0);
+        ctx.context->RSSetViewports(1, &full);
+        ctx.context->IASetVertexBuffers(0, 1, &ctx.corner_vb, &stride, &off);
+        ctx.context->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+        ctx.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+        ctx.context->UpdateSubresource(ctx.matrices, 0, nullptr, &sb, 0, 0);
+        ctx.context->Draw(static_cast<UINT>(n), 0);
+        ctx.context->OMSetDepthStencilState(nullptr, 0);
     }
     // Los ejes van en NDC de pantalla completa: restaurar viewport antes de dibujar.
+    // (Ya dibujados arriba con color directo; aquí solo termina la función.)
     {
         D3D11_VIEWPORT full{};
         full.Width = static_cast<FLOAT>(w);
@@ -2672,7 +2681,6 @@ void DrawCornerGizmo(Context& ctx, const Transform& cam_t, int w, int h) {
         full.MaxDepth = 1.0f;
         ctx.context->RSSetViewports(1, &full);
     }
-    DrawLinesOutlined(ctx, ctx.corner_vb, static_cast<UINT>(n), w, h, nullptr);
 }
 
 // Objetivo reducido para calidad automática. Se recrea al cambiar tamaño o escala.
