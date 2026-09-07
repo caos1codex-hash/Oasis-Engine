@@ -68,6 +68,8 @@ Controles en ventana: `WASD` moverse, `Espacio` subir, `C` bajar
 (`E`/`Q` siguen como alias), `Shift` rápido.
 `P` o el botón ▶ arriba-izquierda: Play/Stop. En edición todo está tieso;
 en Play corre la física; al parar se restaura la edición (`play:SI|NO` en título).
+Barra superior: ▶ Play/Stop y ↓ Guardar (persiste la escena, `save:OK` en título);
+los clics en la franja no seleccionan. Más botones irán aquí.
 `ESC` por pasos: en Play primero vuelve a edición; si no, cierra paneles
 flotantes; después pide confirmar
 (Sí = guarda la escena y sale, No = sale sin guardar, Cancelar = quedarse).

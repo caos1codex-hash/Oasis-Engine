@@ -101,6 +101,9 @@ struct Context {
     bool playing = false;
     Scene play_snapshot;
     bool play_has_snapshot = false;
+    // Flash "save:OK/ERR" en el título tras guardar desde la toolbar.
+    unsigned long long save_msg_until = 0;
+    bool save_msg_ok = true;
     ID3D11Device* device = nullptr;
     ID3D11DeviceContext* context = nullptr;
     IDXGISwapChain* swap = nullptr;
@@ -570,9 +573,25 @@ void StopPlay(Context& ctx) {
     ctx.playing = false;
 }
 
-// Botón Play arriba-izquierda (52x52 en 12,12, píxeles cliente).
-bool PlayButtonHit(int mx, int my) {
-    return mx >= 12 && mx < 12 + 52 && my >= 12 && my < 12 + 52;
+// Barra de herramientas superior (strip 48px, botones 40x40 desde x=8).
+// Para agregar un botón: nuevo ToolId, icono en DrawToolbar, acción en el
+// dispatch de WM_LBUTTONDOWN y +8 vértices de borde (gizmo_vb: 20 hoy).
+constexpr int kToolbarH = 48;
+constexpr int kToolSize = 40;
+constexpr int kToolGap = 4;
+constexpr int kToolX0 = 8;
+constexpr int kToolY0 = 4;
+enum ToolId { kToolPlay = 0, kToolSave = 1, kToolCount = 2 };
+
+// Índice de botón bajo el cursor o -1.
+int ToolbarHit(int mx, int my) {
+    if (my < 0 || my >= kToolbarH) return -1;
+    for (int i = 0; i < kToolCount; ++i) {
+        int x0 = kToolX0 + i * (kToolSize + kToolGap);
+        if (mx >= x0 && mx < x0 + kToolSize && my >= kToolY0 && my < kToolY0 + kToolSize)
+            return i;
+    }
+    return -1;
 }
 
 // Segundo paso de ESC: confirma la salida y guarda los cambios de la escena.
@@ -832,12 +851,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             static_cast<int>(static_cast<short>((lp >> 16) & 0xFFFF));
         ctx->last_x = mx;
         ctx->last_y = my;
-        if (PlayButtonHit(mx, my)) {
-            // Botón Play: alterna sin tocar la selección.
-            if (ctx->playing) StopPlay(*ctx);
-            else StartPlay(*ctx);
+        int tool = ToolbarHit(mx, my);
+        if (tool >= 0) {
+            if (tool == kToolPlay) {
+                if (ctx->playing) StopPlay(*ctx);
+                else StartPlay(*ctx);
+            } else if (tool == kToolSave) {
+                if (ctx->scene != nullptr && ctx->proj != nullptr) {
+                    Error serr;
+                    ctx->save_msg_ok = SceneSaveActive(*ctx->proj, *ctx->scene, serr);
+                    if (!ctx->save_msg_ok)
+                        std::fprintf(stderr, "Guardar: no se pudo: %s\n", serr.message.c_str());
+                    ctx->save_msg_until = ::GetTickCount64() + 3000;
+                }
+            }
             return 0;
         }
+        if (my < kToolbarH) return 0;  // franja sin botón: no selecciona ni arrastra
         float t = 0.0f;
         const Entity* hit = PickAt(*ctx, hwnd, mx, my, t);
         if (hit != nullptr) {
@@ -866,6 +896,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         int mx = static_cast<int>(static_cast<short>(lp & 0xFFFF));
         int my =
             static_cast<int>(static_cast<short>((lp >> 16) & 0xFFFF));
+        if (my < kToolbarH) return 0;  // la barra no abre datos
         float t = 0.0f;
         const Entity* hit = PickAt(*ctx, hwnd, mx, my, t);
         if (hit != nullptr) {
@@ -2168,23 +2199,22 @@ void DrawLinesOutlined(Context& ctx, ID3D11Buffer* vb, UINT count, int w, int h,
     ctx.context->OMSetDepthStencilState(nullptr, 0);
 }
 
-// Botón Play arriba-izquierda (52x52 en 12,12): fondo + icono (▶ verde en
-// edición, ■ rojo en Play) + borde. Sin texto (sin pipeline de fuentes D3D).
-void DrawPlayButton(Context& ctx, int w, int h) {
+// Barra superior: fondo + botones (Play ▶/■ + Guardar ↓) + bordes.
+// Sin texto (sin pipeline de fuentes D3D); el título confirma acciones.
+void DrawToolbar(Context& ctx, int w, int h) {
     if (ctx.corner_vb == nullptr || ctx.gizmo_vb == nullptr || w < 200 || h < 200) return;
-    const float bx0 = 12.0f, by0 = 12.0f, S = 52.0f;
     auto ndc = [&](float px, float py, float& nx, float& ny) {
         nx = (px / static_cast<float>(w)) * 2.0f - 1.0f;
         ny = 1.0f - (py / static_cast<float>(h)) * 2.0f;
     };
-    Vertex v[12];
+    Vertex v[36];
     int n = 0;
     auto tri = [&](float ax, float ay, float ex, float ey, float cx, float cy, float r, float g,
                    float b) {
         float nx, ny;
         const float pxs[3] = {ax, ex, cx};
         const float pys[3] = {ay, ey, cy};
-        for (int k = 0; k < 3; ++k) {
+        for (int k = 0; k < 3 && n < 36; ++k) {
             ndc(pxs[k], pys[k], nx, ny);
             v[n].position[0] = nx;
             v[n].position[1] = ny;
@@ -2200,15 +2230,36 @@ void DrawPlayButton(Context& ctx, int w, int h) {
             ++n;
         }
     };
-    tri(bx0, by0, bx0 + S, by0, bx0, by0 + S, 0.10f, 0.12f, 0.17f);
-    tri(bx0 + S, by0, bx0 + S, by0 + S, bx0, by0 + S, 0.10f, 0.12f, 0.17f);
-    if (ctx.playing) {
-        const float m = 18.0f, q = 34.0f;  // ■ rojo
-        tri(bx0 + m, by0 + m, bx0 + q, by0 + m, bx0 + m, by0 + q, 1.0f, 0.25f, 0.25f);
-        tri(bx0 + q, by0 + m, bx0 + q, by0 + q, bx0 + m, by0 + q, 1.0f, 0.25f, 0.25f);
-    } else {
-        tri(bx0 + 18.0f, by0 + 14.0f, bx0 + 18.0f, by0 + 38.0f, bx0 + 40.0f, by0 + 26.0f, 0.25f,
-            1.0f, 0.25f);  // ▶ verde
+    auto rect = [&](float x0, float y0, float s, float r, float g, float b) {
+        tri(x0, y0, x0 + s, y0, x0, y0 + s, r, g, b);
+        tri(x0 + s, y0, x0 + s, y0 + s, x0, y0 + s, r, g, b);
+    };
+    const float fw = static_cast<float>(w), fh = static_cast<float>(kToolbarH);
+    tri(0.0f, 0.0f, fw, 0.0f, 0.0f, fh, 0.06f, 0.08f, 0.11f);
+    tri(fw, 0.0f, fw, fh, 0.0f, fh, 0.06f, 0.08f, 0.11f);
+    for (int i = 0; i < kToolCount; ++i) {
+        float x0 = static_cast<float>(kToolX0 + i * (kToolSize + kToolGap));
+        float y0 = static_cast<float>(kToolY0);
+        float s = static_cast<float>(kToolSize);
+        rect(x0, y0, s, 0.10f, 0.12f, 0.17f);
+        if (i == kToolPlay) {
+            if (ctx.playing) {
+                const float m = 14.0f, q = 26.0f;  // ■ rojo
+                tri(x0 + m, y0 + m, x0 + q, y0 + m, x0 + m, y0 + q, 1.0f, 0.25f, 0.25f);
+                tri(x0 + q, y0 + m, x0 + q, y0 + q, x0 + m, y0 + q, 1.0f, 0.25f, 0.25f);
+            } else {
+                tri(x0 + 14.0f, y0 + 10.0f, x0 + 14.0f, y0 + 30.0f, x0 + 30.0f, y0 + 20.0f,
+                    0.25f, 1.0f, 0.25f);  // ▶ verde
+            }
+        } else if (i == kToolSave) {
+            // ↓ guardar: vástago + cabeza.
+            tri(x0 + 16.0f, y0 + 8.0f, x0 + 24.0f, y0 + 8.0f, x0 + 16.0f, y0 + 24.0f, 0.9f, 0.9f,
+                0.9f);
+            tri(x0 + 24.0f, y0 + 8.0f, x0 + 24.0f, y0 + 24.0f, x0 + 16.0f, y0 + 24.0f, 0.9f, 0.9f,
+                0.9f);
+            tri(x0 + 10.0f, y0 + 22.0f, x0 + 30.0f, y0 + 22.0f, x0 + 20.0f, y0 + 34.0f, 0.9f, 0.9f,
+                0.9f);
+        }
     }
     {
         D3D11_MAPPED_SUBRESOURCE mapped{};
@@ -2234,33 +2285,47 @@ void DrawPlayButton(Context& ctx, int w, int h) {
         ctx.context->Draw(static_cast<UINT>(n), 0);
         ctx.context->OMSetDepthStencilState(nullptr, 0);
     }
-    // Borde claro con contorno (reutiliza gizmo_vb del frame).
-    Vertex e[8];
-    const float exs[8] = {bx0, bx0 + S, bx0 + S, bx0 + S, bx0 + S, bx0, bx0, bx0};
-    const float eys[8] = {by0, by0, by0, by0 + S, by0 + S, by0 + S, by0 + S, by0};
-    for (int k = 0; k < 8; ++k) {
+    // Bordes: línea inferior del strip + marco por botón (gizmo_vb del frame).
+    Vertex e[18];
+    int m = 0;
+    auto edge = [&](float ax, float ay, float ex, float ey) {
         float nx, ny;
-        ndc(exs[k], eys[k], nx, ny);
-        e[k].position[0] = nx;
-        e[k].position[1] = ny;
-        e[k].position[2] = 0.0f;
-        e[k].normal[0] = 0.0f;
-        e[k].normal[1] = 0.0f;
-        e[k].normal[2] = 1.0f;
-        e[k].color[0] = 0.55f;
-        e[k].color[1] = 0.60f;
-        e[k].color[2] = 0.68f;
-        e[k].uv[0] = 0.0f;
-        e[k].uv[1] = 0.0f;
+        const float pxs[2] = {ax, ex};
+        const float pys[2] = {ay, ey};
+        for (int k = 0; k < 2 && m < 18; ++k) {
+            ndc(pxs[k], pys[k], nx, ny);
+            e[m].position[0] = nx;
+            e[m].position[1] = ny;
+            e[m].position[2] = 0.0f;
+            e[m].normal[0] = 0.0f;
+            e[m].normal[1] = 0.0f;
+            e[m].normal[2] = 1.0f;
+            e[m].color[0] = 0.55f;
+            e[m].color[1] = 0.60f;
+            e[m].color[2] = 0.68f;
+            e[m].uv[0] = 0.0f;
+            e[m].uv[1] = 0.0f;
+            ++m;
+        }
+    };
+    edge(0.0f, fh, fw, fh);
+    for (int i = 0; i < kToolCount; ++i) {
+        float x0 = static_cast<float>(kToolX0 + i * (kToolSize + kToolGap));
+        float y0 = static_cast<float>(kToolY0);
+        float s = static_cast<float>(kToolSize);
+        edge(x0, y0, x0 + s, y0);
+        edge(x0 + s, y0, x0 + s, y0 + s);
+        edge(x0 + s, y0 + s, x0, y0 + s);
+        edge(x0, y0 + s, x0, y0);
     }
     {
         D3D11_MAPPED_SUBRESOURCE mapped{};
         if (FAILED(ctx.context->Map(ctx.gizmo_vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
             return;
-        std::memcpy(mapped.pData, e, sizeof(e));
+        std::memcpy(mapped.pData, e, static_cast<std::size_t>(m) * sizeof(Vertex));
         ctx.context->Unmap(ctx.gizmo_vb, 0);
     }
-    DrawLinesOutlined(ctx, ctx.gizmo_vb, 8, w, h, nullptr);
+    DrawLinesOutlined(ctx, ctx.gizmo_vb, static_cast<UINT>(m), w, h, nullptr);
 }
 
 void DrawCrosshair(Context& ctx, const Project& proj, const Scene& scene, const Transform& cam_t,
@@ -2952,7 +3017,7 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
         ctx.context->PSSetConstantBuffers(0, 1, &ctx.matrices);
         ctx.context->PSSetSamplers(0, 1, &ctx.sampler);
     }
-    DrawPlayButton(ctx, width, height);
+    DrawToolbar(ctx, width, height);
     DrawCrosshair(ctx, proj, scene, *cam_t, aspect, width, height);
     float view_proj[16];
     MatMul(view_proj, view, proj_m);
@@ -3231,10 +3296,14 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
                     break;
                 }
             }
-            char title[384];
+            char title[400];
+            char savemsg[16] = "";
+            if (::GetTickCount64() < ctx.save_msg_until)
+                std::snprintf(savemsg, sizeof(savemsg), " save:%s",
+                              ctx.save_msg_ok ? "OK" : "ERR");
             std::snprintf(title, sizeof(title),
                           "Oasis | %u FPS %.1fms | foco:%s eventos:%llu raton:%llu mouse:%s | "
-                          "cam:[%.1f,%.1f,%.1f] rot:[%.2f,%.2f] sel:%s eje:%c res:%d%% play:%s",
+                          "cam:[%.1f,%.1f,%.1f] rot:[%.2f,%.2f] sel:%s eje:%c res:%d%% play:%s%s",
                           frames, ema_ms, ctx.has_focus ? "si" : "no",
                           static_cast<unsigned long long>(ctx.event_count),
                           static_cast<unsigned long long>(ctx.mouse_event_count),
@@ -3247,7 +3316,7 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
                           ctx.selected.empty() ? "-" : ctx.selected.c_str(),
                           ctx.locked_axis != 0 ? ctx.locked_axis : '-',
                           static_cast<int>(ctx.quality_scale * 100.0f + 0.5f),
-                          ctx.playing ? "SI" : "NO");
+                          ctx.playing ? "SI" : "NO", savemsg);
             ::SetWindowTextA(hwnd, title);
             acc = 0.0;
             frames = 0;

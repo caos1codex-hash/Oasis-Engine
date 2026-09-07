@@ -96,6 +96,8 @@ oasis stop [--project RUTA] [--save]
 * Ventana: edición tiesa por defecto; `P`/botón ▶ = Play (física), ⏹/ESC/X
   restauran edición. `--play` arranca en Play. `--ticks`/`stop` son salidas
   automáticas: informan el estado vivo; `stop --save` persiste ese estado.
+* Barra superior (48px): botones Play y Guardar; framework listo para más
+  (ver `kToolCount` en el renderer). Los clics en la franja no seleccionan.
 * Ventana = Windows + D3D11 (dedicada → hardware → WARP). Headless es portable.
 * Sin ECS, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.
 
