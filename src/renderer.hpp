@@ -21,6 +21,7 @@ struct RenderConfig {
     WindowMode mode = WindowMode::Windowed;
     bool vsync = true;  // Present(1,0): ritmo del monitor, sin busy-loop al 100%
     int min_fps = 144;  // calidad automática: bajo este FPS baja resolución; 0 = desactivada
+    bool start_playing = false;  // true = ventana arranca en Play (--play)
 };
 
 // Retorna 0 ok, 1 error (err con code GPU/INVALID_ARG/INTERNAL).

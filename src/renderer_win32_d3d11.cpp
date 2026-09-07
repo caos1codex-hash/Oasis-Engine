@@ -769,6 +769,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 ctx->locked_axis = (ctx->locked_axis == a) ? 0 : a;
             }
         }
+        else if (wp == 'P') {
+            // Play/Stop: con snapshot (ver StartPlay/StopPlay).
+            if (!is_repeat) {
+                if (ctx->playing) StopPlay(*ctx);
+                else StartPlay(*ctx);
+            }
+        }
         else if (wp == VK_SHIFT) ctx->fast = true;
         else if (wp == VK_CONTROL) {
             // Ctrl = interruptor del mouse (solo en el flanco de pulsación, no en repetición).
@@ -825,6 +832,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             static_cast<int>(static_cast<short>((lp >> 16) & 0xFFFF));
         ctx->last_x = mx;
         ctx->last_y = my;
+        if (PlayButtonHit(mx, my)) {
+            // Botón Play: alterna sin tocar la selección.
+            if (ctx->playing) StopPlay(*ctx);
+            else StartPlay(*ctx);
+            return 0;
+        }
         float t = 0.0f;
         const Entity* hit = PickAt(*ctx, hwnd, mx, my, t);
         if (hit != nullptr) {
@@ -2155,6 +2168,101 @@ void DrawLinesOutlined(Context& ctx, ID3D11Buffer* vb, UINT count, int w, int h,
     ctx.context->OMSetDepthStencilState(nullptr, 0);
 }
 
+// Botón Play arriba-izquierda (52x52 en 12,12): fondo + icono (▶ verde en
+// edición, ■ rojo en Play) + borde. Sin texto (sin pipeline de fuentes D3D).
+void DrawPlayButton(Context& ctx, int w, int h) {
+    if (ctx.corner_vb == nullptr || ctx.gizmo_vb == nullptr || w < 200 || h < 200) return;
+    const float bx0 = 12.0f, by0 = 12.0f, S = 52.0f;
+    auto ndc = [&](float px, float py, float& nx, float& ny) {
+        nx = (px / static_cast<float>(w)) * 2.0f - 1.0f;
+        ny = 1.0f - (py / static_cast<float>(h)) * 2.0f;
+    };
+    Vertex v[12];
+    int n = 0;
+    auto tri = [&](float ax, float ay, float ex, float ey, float cx, float cy, float r, float g,
+                   float b) {
+        float nx, ny;
+        const float pxs[3] = {ax, ex, cx};
+        const float pys[3] = {ay, ey, cy};
+        for (int k = 0; k < 3; ++k) {
+            ndc(pxs[k], pys[k], nx, ny);
+            v[n].position[0] = nx;
+            v[n].position[1] = ny;
+            v[n].position[2] = 0.0f;
+            v[n].normal[0] = 0.0f;
+            v[n].normal[1] = 0.0f;
+            v[n].normal[2] = 1.0f;
+            v[n].color[0] = r;
+            v[n].color[1] = g;
+            v[n].color[2] = b;
+            v[n].uv[0] = 0.0f;
+            v[n].uv[1] = 0.0f;
+            ++n;
+        }
+    };
+    tri(bx0, by0, bx0 + S, by0, bx0, by0 + S, 0.10f, 0.12f, 0.17f);
+    tri(bx0 + S, by0, bx0 + S, by0 + S, bx0, by0 + S, 0.10f, 0.12f, 0.17f);
+    if (ctx.playing) {
+        const float m = 18.0f, q = 34.0f;  // ■ rojo
+        tri(bx0 + m, by0 + m, bx0 + q, by0 + m, bx0 + m, by0 + q, 1.0f, 0.25f, 0.25f);
+        tri(bx0 + q, by0 + m, bx0 + q, by0 + q, bx0 + m, by0 + q, 1.0f, 0.25f, 0.25f);
+    } else {
+        tri(bx0 + 18.0f, by0 + 14.0f, bx0 + 18.0f, by0 + 38.0f, bx0 + 40.0f, by0 + 26.0f, 0.25f,
+            1.0f, 0.25f);  // ▶ verde
+    }
+    {
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (FAILED(ctx.context->Map(ctx.corner_vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+            return;
+        std::memcpy(mapped.pData, v, static_cast<std::size_t>(n) * sizeof(Vertex));
+        ctx.context->Unmap(ctx.corner_vb, 0);
+        SceneBuffer sb{};
+        MatIdentity(sb.wvp);
+        sb.tint[0] = sb.tint[1] = sb.tint[2] = 1.0f;
+        sb.tint[3] = 0.0f;  // unlit: pass-through para overlays
+        UINT stride = sizeof(Vertex), off = 0;
+        D3D11_VIEWPORT vp{};
+        vp.Width = static_cast<FLOAT>(w);
+        vp.Height = static_cast<FLOAT>(h);
+        vp.MaxDepth = 1.0f;
+        ctx.context->OMSetDepthStencilState(ctx.no_depth, 0);
+        ctx.context->RSSetViewports(1, &vp);
+        ctx.context->IASetVertexBuffers(0, 1, &ctx.corner_vb, &stride, &off);
+        ctx.context->IASetIndexBuffer(nullptr, DXGI_FORMAT_UNKNOWN, 0);
+        ctx.context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+        ctx.context->UpdateSubresource(ctx.matrices, 0, nullptr, &sb, 0, 0);
+        ctx.context->Draw(static_cast<UINT>(n), 0);
+        ctx.context->OMSetDepthStencilState(nullptr, 0);
+    }
+    // Borde claro con contorno (reutiliza gizmo_vb del frame).
+    Vertex e[8];
+    const float exs[8] = {bx0, bx0 + S, bx0 + S, bx0 + S, bx0 + S, bx0, bx0, bx0};
+    const float eys[8] = {by0, by0, by0, by0 + S, by0 + S, by0 + S, by0 + S, by0};
+    for (int k = 0; k < 8; ++k) {
+        float nx, ny;
+        ndc(exs[k], eys[k], nx, ny);
+        e[k].position[0] = nx;
+        e[k].position[1] = ny;
+        e[k].position[2] = 0.0f;
+        e[k].normal[0] = 0.0f;
+        e[k].normal[1] = 0.0f;
+        e[k].normal[2] = 1.0f;
+        e[k].color[0] = 0.55f;
+        e[k].color[1] = 0.60f;
+        e[k].color[2] = 0.68f;
+        e[k].uv[0] = 0.0f;
+        e[k].uv[1] = 0.0f;
+    }
+    {
+        D3D11_MAPPED_SUBRESOURCE mapped{};
+        if (FAILED(ctx.context->Map(ctx.gizmo_vb, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped)))
+            return;
+        std::memcpy(mapped.pData, e, sizeof(e));
+        ctx.context->Unmap(ctx.gizmo_vb, 0);
+    }
+    DrawLinesOutlined(ctx, ctx.gizmo_vb, 8, w, h, nullptr);
+}
+
 void DrawCrosshair(Context& ctx, const Project& proj, const Scene& scene, const Transform& cam_t,
                    float aspect, int w, int h) {
     if (ctx.cross_vb == nullptr || ctx.no_depth == nullptr) return;
@@ -2844,6 +2952,7 @@ HRESULT DrawFrame(Context& ctx, const Project& proj, const Scene& scene, int wid
         ctx.context->PSSetConstantBuffers(0, 1, &ctx.matrices);
         ctx.context->PSSetSamplers(0, 1, &ctx.sampler);
     }
+    DrawPlayButton(ctx, width, height);
     DrawCrosshair(ctx, proj, scene, *cam_t, aspect, width, height);
     float view_proj[16];
     MatMul(view_proj, view, proj_m);
@@ -3017,6 +3126,10 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
     double ema_ms = 16.6;  // media móvil del frame para diagnóstico
     unsigned frames = 0;
     ctx.running = true;
+    ctx.scene = rt.scene;
+    ctx.proj = &proj;
+    rt.simulate = cfg.start_playing;
+    if (cfg.start_playing) StartPlay(ctx);
     HANDLE stop_event = StopEventCreate(StopEventNameInternal(proj.root, false));
     HANDLE stop_save_event = StopEventCreate(StopEventNameInternal(proj.root, true));
     if (stop_event == nullptr || stop_save_event == nullptr) {
@@ -3030,11 +3143,17 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
             ::TranslateMessage(&m);
             ::DispatchMessageA(&m);
         }
-        if (!ctx.running) break;
+        if (!ctx.running) {
+            StopPlay(ctx);  // salida humana (X/ESC): restaura edición
+            break;
+        }
+        rt.simulate = ctx.playing;  // la física la gobierna el modo Play
         // 'oasis stop' desde otra terminal/IA. Con --save persiste la escena
         // viva antes de salir (equivale a ESC -> Sí); sin --save sale sin guardar.
         bool save_and_stop = StopEventPoll(stop_save_event);
         if (save_and_stop || StopEventPoll(stop_event)) {
+            // Salida automática: NO restaura (el JSON informa el estado vivo;
+            // --save persiste ese mismo estado).
             if (save_and_stop && ctx.scene != nullptr && ctx.proj != nullptr) {
                 Error serr;
                 if (SceneSaveActive(*ctx.proj, *ctx.scene, serr))
@@ -3115,7 +3234,7 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
             char title[384];
             std::snprintf(title, sizeof(title),
                           "Oasis | %u FPS %.1fms | foco:%s eventos:%llu raton:%llu mouse:%s | "
-                          "cam:[%.1f,%.1f,%.1f] rot:[%.2f,%.2f] sel:%s eje:%c res:%d%%",
+                          "cam:[%.1f,%.1f,%.1f] rot:[%.2f,%.2f] sel:%s eje:%c res:%d%% play:%s",
                           frames, ema_ms, ctx.has_focus ? "si" : "no",
                           static_cast<unsigned long long>(ctx.event_count),
                           static_cast<unsigned long long>(ctx.mouse_event_count),
@@ -3127,13 +3246,15 @@ int RendererRun(const Project& proj, Runtime& rt, const RenderConfig& cfg,
                           cam == nullptr ? 0.0f : cam->rotation.x,
                           ctx.selected.empty() ? "-" : ctx.selected.c_str(),
                           ctx.locked_axis != 0 ? ctx.locked_axis : '-',
-                          static_cast<int>(ctx.quality_scale * 100.0f + 0.5f));
+                          static_cast<int>(ctx.quality_scale * 100.0f + 0.5f),
+                          ctx.playing ? "SI" : "NO");
             ::SetWindowTextA(hwnd, title);
             acc = 0.0;
             frames = 0;
         }
         if (cfg.max_ticks > 0 && rt.tick_count >= cfg.max_ticks) break;
     }
+    // Salir por --ticks llega aquí con el estado vivo (sin restaurar).
     // Restaurar cursor/clip aunque se salga con el lock activo (ESC, --ticks, error, stop).
     UnlockMouse(ctx);
     if (stop_event != nullptr) {

@@ -54,6 +54,10 @@ Reconstrucción desde 0 en C++17. Mantiene el contrato CLI/JSON (`schema_version
   con restitución 0 y reposo bajo 0.01 m/s. Estático = Collider sin RigidBody.
 * Determinista en headless (`run --ticks N`). La ventana comparte el mismo
   `update`; arrastrar anula la velocidad del agarrado.
+* Modo Play en ventana: `Runtime::simulate` (true por defecto; headless siempre
+  simula). La ventana arranca pausada salvo `--play`; `P`/botón alterna con
+  snapshot. Restauran edición: P-off, primera ESC y X. `--ticks`/`stop` no
+  restauran (informan/guardan el estado vivo).
 * Fuera: rotación dinámica, fricción, mallas cóncavas, joints, momento angular.
 * `WorldMatrix` aplica yaw+pitch+roll (`R = Ry*Rx*Rz`, misma matriz en picking).
 * VSync ON por defecto (`Present(1,0)`, ritmo del monitor). `--vsync 0` lo desactiva

@@ -43,7 +43,7 @@ void PrintUsageHuman() {
                  "  oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]\n"
                  "  oasis asset list [--project RUTA]\n"
                   "  oasis state [--project RUTA]\n"
-                  "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N]\n"
+                  "  oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N] [--play]\n"
                   "  oasis stop [--project RUTA] [--save]\n",
                  oasis::kVersion);
 }
@@ -550,6 +550,7 @@ int main(int argc, char** argv) {
         std::uint64_t ticks = 1;
         bool vsync = true;
         int min_fps = 144;  // 0 = calidad automática desactivada
+        bool play_flag = false;  // --play: la ventana arranca en Play
         for (int i = 2; i < argc; ++i) {
             std::string a = argv[i];
             if (a == "--window") {
@@ -596,12 +597,16 @@ int main(int argc, char** argv) {
                 }
                 min_fps = static_cast<int>(v);
                 ++i;
+            } else if (a == "--play") {
+                play_flag = true;
             } else {
                 return FailUsage("Flag desconocido en run: " + a);
             }
         }
         if ((fullscreen_flag || modo_given) && !window)
             return FailUsage("Uso: --fullscreen/--modo requieren --window.");
+        if (play_flag && !window)
+            return FailUsage("Uso: --play requiere --window (headless ya simula).");
         if (fullscreen_flag && modo_given && modo != "completa")
             return FailUsage("Uso: --fullscreen equivale a --modo completa (conflicto).");
         Error err;
@@ -630,6 +635,7 @@ int main(int argc, char** argv) {
         cfg.max_ticks = ticks_given ? ticks : 0;
         cfg.vsync = vsync;
         cfg.min_fps = min_fps;
+        cfg.start_playing = play_flag;
         if (fullscreen_flag || (modo_given && modo == "completa"))
             cfg.mode = oasis::WindowMode::Fullscreen;
         else if (modo_given && modo == "barra")

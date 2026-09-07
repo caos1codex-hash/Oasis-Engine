@@ -313,6 +313,24 @@ int main() {
                "escribir masa 0");
         oasis::Scene badphys;
         EXPECT(!oasis::SceneLoadActive(proj, badphys, err), "masa 0 debe fallar");
+        // simulate=false congela (modo edición): ni cae ni integra.
+        {
+            oasis::Entity* bem = oasis::SceneGetEntityMut(phys, "Box");
+            EXPECT(bem != nullptr, "caja mutable");
+            bem->transform.position.y = 5.0f;
+            bem->rigidbody.velocity = oasis::Vec3{0.0f, 0.0f, 0.0f};
+            prt.simulate = false;
+            EXPECT(prt.update(1.0 / 60.0, err), err.message.c_str());
+            const oasis::Entity* frozen = oasis::SceneGetEntity(phys, "Box");
+            EXPECT(frozen != nullptr && frozen->transform.position.y == 5.0f,
+                   "pausado no integra");
+            prt.simulate = true;
+            for (int t = 0; t < 300; ++t) EXPECT(prt.update(1.0 / 60.0, err), err.message.c_str());
+            const oasis::Entity* fell = oasis::SceneGetEntity(phys, "Box");
+            EXPECT(fell != nullptr && fell->transform.position.y > 0.4f &&
+                       fell->transform.position.y < 0.6f,
+                   "reanuda y reposa");
+        }
         prt.shutdown();
     }
 

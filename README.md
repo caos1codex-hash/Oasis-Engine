@@ -66,7 +66,10 @@ Modos de ventana (`run --window`): `--modo ventana` (marco 800x600, por defecto)
 
 Controles en ventana: `WASD` moverse, `Espacio` subir, `C` bajar
 (`E`/`Q` siguen como alias), `Shift` rápido.
-`ESC` por pasos: primero cierra paneles flotantes; después pide confirmar
+`P` o el botón ▶ arriba-izquierda: Play/Stop. En edición todo está tieso;
+en Play corre la física; al parar se restaura la edición (`play:SI|NO` en título).
+`ESC` por pasos: en Play primero vuelve a edición; si no, cierra paneles
+flotantes; después pide confirmar
 (Sí = guarda la escena y sale, No = sale sin guardar, Cancelar = quedarse).
 Ratón: `Ctrl` activa/desactiva el pointer-lock (cursor oculto, bloqueado al centro,
 ver `mouse:on|off` en el título); con el mouse activo, moverlo mira (yaw/pitch

@@ -52,7 +52,7 @@ oasis asset convert-obj ID ARCHIVO.obj [--project RUTA]
 oasis scene set-sky ID|none [--project RUTA]  # ID debe ser asset kind "sky"
 oasis asset list [--project RUTA]
 oasis state [--project RUTA]
-oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N]
+oasis run [--project RUTA] [--ticks N] [--window] [--modo ventana|completa|barra] [--vsync 0|1] [--min-fps N] [--play]
 oasis stop [--project RUTA] [--save]
 ```
 
@@ -93,6 +93,9 @@ oasis stop [--project RUTA] [--save]
   Estático = Collider sin RigidBody. Sin rotación dinámica, fricción, cóncavas
   ni joints. `run --ticks N` la ejecuta headless y determinista, y devuelve
   `entities` post-simulación (`run` nunca guarda en disco).
+* Ventana: edición tiesa por defecto; `P`/botón ▶ = Play (física), ⏹/ESC/X
+  restauran edición. `--play` arranca en Play. `--ticks`/`stop` son salidas
+  automáticas: informan el estado vivo; `stop --save` persiste ese estado.
 * Ventana = Windows + D3D11 (dedicada → hardware → WARP). Headless es portable.
 * Sin ECS, audio, scripting, red, API HTTP. Fuera de v0.2 por diseño.
 
